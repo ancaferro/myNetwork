@@ -1,0 +1,32 @@
+{
+  "name": "mynetwork",
+  "version": "1.0.0",
+  "description": "myNetwork — cross-platform LAN & port scanner with a beautiful GUI",
+  "main": "src/main.js",
+  "author": "ancaferro <ancaferro@users.noreply.github.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/ancaferro/myNetwork",
+  "repository": { "type": "git", "url": "https://github.com/ancaferro/myNetwork.git" },
+  "scripts": {
+    "start": "electron .",
+    "start:nosandbox": "electron . --no-sandbox",
+    "dev": "electron . --dev --no-sandbox",
+    "dist": "electron-builder",
+    "dist:linux": "electron-builder --linux",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.mynetwork.app",
+    "productName": "myNetwork",
+    "icon": "build/icon.png",
+    "files": ["src/**/*", "build/icon.png", "package.json"],
+    "linux": { "target": ["AppImage", "deb"], "category": "Network", "icon": "build/icon.png", "maintainer": "ancaferro <ancaferro@users.noreply.github.com>" },
+    "win": { "target": ["nsis"] },
+    "mac": { "target": ["dmg"], "category": "public.app-category.utilities" }
+  }
+}

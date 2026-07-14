@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';" />
+  <title>myNetwork</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="xp-window" id="win">
+    <!-- ===== Title bar ===== -->
+    <div class="xp-titlebar" id="titlebar">
+      <div class="xp-title">
+        <svg class="xp-ico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 8 H10 V5.5 a1 1 0 0 1 1 -1 h2 a1 1 0 0 1 1 1 V8 H19 a1 1 0 0 1 1 1 V17 a1 1 0 0 1 -1 1 H5 a1 1 0 0 1 -1 -1 V9 a1 1 0 0 1 1 -1 Z"/>
+          <path d="M8 13 v3 M10.5 13 v3 M13 13 v3 M15.5 13 v3"/>
+        </svg>
+        <span>myNetwork</span>
+      </div>
+      <div class="xp-caption-btns">
+        <button class="capbtn min" id="btn-min" title="Minimize"></button>
+        <button class="capbtn max" id="btn-max" title="Maximize"></button>
+        <button class="capbtn close" id="btn-close" title="Close"></button>
+      </div>
+    </div>
+
+    <!-- ===== Menu bar ===== -->
+    <div class="xp-menubar" id="menubar">
+      <span class="menu" data-menu="file">File</span>
+      <span class="menu" data-menu="scan">Scan</span>
+      <span class="menu" data-menu="help">Help</span>
+    </div>
+
+    <!-- ===== Toolbar (controls) ===== -->
+    <div class="xp-toolbar">
+      <fieldset class="xp-group grow">
+        <legend>Target</legend>
+        <div class="grp-row">
+          <label>Interface:</label>
+          <select id="iface"></select>
+          <label>Range:</label>
+          <input id="target" type="text" spellcheck="false" placeholder="10.0.0.0/24, 192.168.1.0/24" />
+        </div>
+      </fieldset>
+
+      <fieldset class="xp-group">
+        <legend>Mode</legend>
+        <div class="grp-row">
+          <select id="portset" title="Fast: ICMP + popular · Full: TCP + UDP + ICMP, all ports · Custom: your TCP/UDP ranges">
+            <option value="fast" title="ICMP + popular ports">Fast</option>
+            <option value="full" title="TCP + UDP + ICMP, all ports">Full</option>
+            <option value="custom" title="Your own TCP/UDP ranges">Custom</option>
+          </select>
+        </div>
+        <div id="custom-fields" class="hidden">
+          <div class="custom-row"><label>TCP</label><input id="customTcp" type="text" spellcheck="false" placeholder="22,80,8000-8100" /></div>
+          <div class="custom-row"><label>UDP</label><input id="customUdp" type="text" spellcheck="false" placeholder="53,123,161" /></div>
+        </div>
+      </fieldset>
+
+      <fieldset class="xp-group">
+        <legend>Timeouts (ms)</legend>
+        <div class="grp-row">
+          <label>Ping:</label><input id="pingTimeout" type="number" value="1000" min="200" step="100" class="num" />
+          <label>Port:</label><input id="portTimeout" type="number" value="700" min="150" step="50" class="num" />
+        </div>
+      </fieldset>
+
+      <div class="xp-actions">
+        <button id="scanBtn" class="xp-btn default">Start</button>
+        <button id="monitorBtn" class="xp-btn" title="Ping known hosts every minute and re-check ports every 5 minutes; notify on online/offline changes">Monitoring</button>
+      </div>
+    </div>
+
+    <!-- ===== Filter bar ===== -->
+    <div class="xp-filterbar">
+      <label>Filter:</label>
+      <input id="search" type="text" spellcheck="false" placeholder="IP, host, vendor, port (e.g. 8188 or port:22)&hellip;" />
+      <label class="chk" title="Keep hosts from previous scans instead of clearing the list on each new scan">
+        <input type="checkbox" id="preserve" checked /> Preserve results
+      </label>
+      <button id="clearBtn" class="xp-btn" title="Clear the results list">Clear</button>
+    </div>
+
+    <!-- ===== ListView ===== -->
+    <div class="xp-listview" id="listview">
+      <table class="hosts">
+        <thead>
+          <tr>
+            <th class="col-dot"></th>
+            <th data-sort="ip" class="sortable sort-asc">IP address</th>
+            <th data-sort="host" class="sortable">Hostname</th>
+            <th data-sort="mac" class="sortable">MAC</th>
+            <th data-sort="vendor" class="sortable">Vendor</th>
+            <th data-sort="rtt" class="sortable col-num">Ping</th>
+            <th data-sort="ports" class="sortable">Open ports</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div class="empty" id="empty">
+        <svg viewBox="0 0 24 24" width="40" height="40" fill="none" stroke="#7a7a6d" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>
+        </svg>
+        <p><b>No results yet.</b> Pick an interface and press <b>Start</b>.</p>
+      </div>
+    </div>
+
+    <!-- ===== Status bar ===== -->
+    <div class="xp-statusbar">
+      <div class="sb-panel mode" id="sb-mode"></div>
+      <div class="sb-panel grow" id="sb-status">Ready</div>
+      <div class="sb-panel prog"><div class="xp-prog"><div class="xp-prog-fill" id="progress-fill"></div></div></div>
+      <div class="sb-panel" id="sb-count"></div>
+      <div class="sb-panel" id="sb-live">0 hosts</div>
+      <div class="sb-panel" id="sb-ports">0 ports</div>
+      <div class="sb-panel" id="sb-elapsed">&mdash;</div>
+      <div class="sb-grip"></div>
+    </div>
+  </div>
+
+  <!-- ===== Dropdown menu (populated by JS) ===== -->
+  <div class="xp-menu-popup hidden" id="menu-popup"></div>
+
+  <!-- ===== About dialog ===== -->
+  <div class="xp-modal-overlay hidden" id="about-overlay">
+    <div class="xp-dialog">
+      <div class="xp-titlebar sm">
+        <div class="xp-title"><span>About myNetwork</span></div>
+        <div class="xp-caption-btns"><button class="capbtn close" id="about-close"></button></div>
+      </div>
+      <div class="xp-dialog-body">
+        <svg viewBox="0 0 24 24" width="42" height="42" fill="none" stroke="#0a53e9" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M5 8 H10 V5.5 a1 1 0 0 1 1 -1 h2 a1 1 0 0 1 1 1 V8 H19 a1 1 0 0 1 1 1 V17 a1 1 0 0 1 -1 1 H5 a1 1 0 0 1 -1 -1 V9 a1 1 0 0 1 1 -1 Z"/>
+          <path d="M8 13 v3 M10.5 13 v3 M13 13 v3 M15.5 13 v3"/>
+        </svg>
+        <div>
+          <p><b>myNetwork</b> 1.0</p>
+          <p>Cross-platform LAN &amp; port scanner.</p>
+          <p class="dim">Full IEEE OUI vendor database &middot; TCP scan &middot; CSV export.</p>
+        </div>
+      </div>
+      <div class="xp-dialog-foot">
+        <button class="xp-btn default" id="about-ok">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

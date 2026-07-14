@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#1366e0"/>
+  <!-- simple RJ45 plug silhouette: body + latch tab + 4 pins -->
+  <path fill="#ffffff" d="M150 200
+           h60 v-28 a10 10 0 0 1 10 -10 h72 a10 10 0 0 1 10 10 v28 h60
+           a18 18 0 0 1 18 18 v128 a18 18 0 0 1 -18 18
+           H150 a18 18 0 0 1 -18 -18 V218 a18 18 0 0 1 18 -18 z"/>
+  <g fill="#1366e0">
+    <rect x="188" y="300" width="20" height="64" rx="5"/>
+    <rect x="228" y="300" width="20" height="64" rx="5"/>
+    <rect x="264" y="300" width="20" height="64" rx="5"/>
+    <rect x="304" y="300" width="20" height="64" rx="5"/>
+  </g>
+</svg>
