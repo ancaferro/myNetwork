@@ -32,6 +32,17 @@ function ping(ip, timeoutMs = 1000) {
   });
 }
 
+// Ping with a few quick retries — a single dropped ICMP packet (common on
+// Wi-Fi, power-saving devices, or ICMP rate-limiting) shouldn't read as "down".
+async function pingAlive(ip, timeoutMs = 1000, attempts = 2) {
+  let last = { alive: false, rtt: null };
+  for (let i = 0; i < attempts; i++) {
+    last = await ping(ip, timeoutMs);
+    if (last.alive) return last;
+  }
+  return last;
+}
+
 // ---- ARP / neighbour table --------------------------------------------------
 // Returns Map<ip, mac>. Reads the kernel cache — cheap and privilege-free.
 async function readArpTable() {
@@ -102,4 +113,4 @@ async function resolveHostname(ip) {
   return null;
 }
 
-module.exports = { ping, readArpTable, resolveHostname, defaultRoute, PLATFORM };
+module.exports = { ping, pingAlive, readArpTable, resolveHostname, defaultRoute, PLATFORM };

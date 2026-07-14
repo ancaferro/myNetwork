@@ -410,7 +410,7 @@ async function startMonitoring() {
   const res = await window.api.startMonitor(hosts);
   if (res && res.ok) {
     monitoring = true;
-    el.monitorBtn.textContent = 'Stop monitoring';
+    el.monitorBtn.textContent = 'Stop';
     el.monitorBtn.classList.add('active');
     el.sbStatus.textContent = `Monitoring ${res.count} hosts · ICMP every 1 min · ports every 5 min`;
   }

@@ -113,6 +113,8 @@ body {
 
 .xp-actions { display: flex; flex-direction: column; gap: 6px; justify-content: center; }
 .xp-btn.sm { min-width: 0; padding: 3px 10px; }
+/* Fixed width so the label ("Monitoring" ↔ "Stop") never resizes the button. */
+#monitorBtn { width: 96px; }
 
 /* ===== Form controls ===== */
 input[type="text"], input[type="number"], select {
@@ -153,7 +155,7 @@ input#search { flex: 1; }
 }
 .xp-filterbar .chk { display: flex; align-items: center; gap: 4px; cursor: pointer; white-space: nowrap; }
 .xp-filterbar .chk input { margin: 0; cursor: pointer; }
-.xp-filterbar #clearBtn { flex: none; width: 85px; }
+.xp-filterbar #clearBtn { flex: none; width: 96px; }
 
 /* ===== ListView ===== */
 .xp-listview {
@@ -192,6 +194,10 @@ td.c-ip.copied, td.c-mac.copied { background: #fff6b8; text-decoration: none; }
 tr.sel td.c-ip.copied, tr.sel td.c-mac.copied { color: #000; }
 /* Clicking elsewhere in a row copies it as JSON — brief flash. */
 tbody tr.copied-row { background: #fff6b8 !important; }
+/* The flash also selects the row (white text); force black so it stays readable on yellow. */
+tbody tr.copied-row td,
+tbody tr.copied-row.sel td,
+tbody tr.copied-row.sel td.muted { color: #000; }
 td.c-rtt { font-family: 'Consolas', 'DejaVu Sans Mono', monospace; text-align: right; }
 td.c-vendor { max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
 td.muted { color: #999; }

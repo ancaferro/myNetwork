@@ -4,7 +4,7 @@ const path = require('path');
 const fs = require('fs');
 const { Scan } = require('./scanner');
 const { detectInterfaces } = require('./scanner/net-utils');
-const { defaultRoute, ping } = require('./scanner/discovery');
+const { defaultRoute, pingAlive } = require('./scanner/discovery');
 const { probePort, serviceName, DEFAULT_PORTS } = require('./scanner/ports');
 
 const ICON_PATH = path.join(__dirname, '..', 'build', 'icon.png');
@@ -230,21 +230,29 @@ function monitorSend(channel, payload) {
 }
 
 // hosts: [{ ip, ports:[{port,proto,service,banner}] }]
+// A host must miss this many consecutive rounds before it's shown offline —
+// prevents flicker from the occasional dropped ping. Coming back is instant.
+const OFFLINE_STRIKES = 3;
+
 function startMonitor(hosts) {
   stopMonitor();
-  const state = new Map(hosts.map((h) => [h.ip, { online: true, ports: h.ports || [] }]));
+  const state = new Map(hosts.map((h) => [h.ip, { online: true, misses: 0, ports: h.ports || [] }]));
 
   const pingRound = async () => {
     await Promise.all(
       [...state.keys()].map(async (ip) => {
-        const r = await ping(ip, 1200);
+        const r = await pingAlive(ip, 1200, 2);
         const st = state.get(ip);
         if (!st) return;
-        if (r.alive !== st.online) {
-          st.online = r.alive;
-          notify(r.alive ? 'Host is back online' : 'Host went offline', ip);
+        st.misses = r.alive ? 0 : st.misses + 1;
+        // Online again on the first reply; offline only after enough misses in a row.
+        const nowOnline = r.alive ? true : st.misses < OFFLINE_STRIKES ? st.online : false;
+        if (nowOnline !== st.online) {
+          st.online = nowOnline;
+          notify(nowOnline ? 'Host is back online' : 'Host went offline', ip);
         }
-        monitorSend('monitor:host', { ip, online: r.alive, rtt: r.rtt });
+        // Send the debounced state (not the raw ping) so the dot doesn't flicker.
+        monitorSend('monitor:host', { ip, online: st.online, rtt: r.rtt });
       })
     );
   };
