@@ -33,7 +33,7 @@ const el = {
 let interfaces = [];
 let scanning = false;
 let monitoring = false;
-let hostRows = new Map(); // ip -> { tr, data }
+const hostRows = new Map(); // ip -> { tr, data }
 let sortKey = 'ip';
 let sortDir = 1;
 let timerId = null;
@@ -41,17 +41,22 @@ let startedAt = 0;
 
 // ---- Init -------------------------------------------------------------------
 async function init() {
-  const res = await window.api.getInterfaces();
-  if (res && res.ok) {
-    interfaces = res.interfaces;
-    el.iface.innerHTML = interfaces
-      .map((i, idx) => `<option value="${idx}">${i.isDefault ? '★ ' : ''}${i.name} (${i.cidrs.join(', ')})</option>`)
-      .join('');
-    if (interfaces.length) restoreTargetSelection();
-    else el.sbStatus.textContent = 'No active interfaces found';
-  }
+  // Wire the UI first so a failing interface lookup can't leave the buttons dead.
   wireEvents();
   wireIpc();
+  try {
+    const res = await window.api.getInterfaces();
+    if (res && res.ok) {
+      interfaces = res.interfaces;
+      el.iface.innerHTML = interfaces
+        .map((i, idx) => `<option value="${idx}">${i.isDefault ? '★ ' : ''}${i.name} (${i.cidrs.join(', ')})</option>`)
+        .join('');
+      if (interfaces.length) restoreTargetSelection();
+      else el.sbStatus.textContent = 'No active interfaces found';
+    }
+  } catch {
+    el.sbStatus.textContent = 'Could not read network interfaces';
+  }
   restoreCache();
 }
 
@@ -543,7 +548,7 @@ function upsertHost(h) {
   }
   applyFilterTo(tr);
   updateStats();
-  sortRows();
+  scheduleSort();
 }
 
 function stats() {
@@ -568,6 +573,19 @@ function sortRows() {
     return c * sortDir;
   });
   for (const r of rows) el.tbody.appendChild(r);
+}
+
+// Coalesce the many host events of a scan into one re-sort per animation frame.
+// Without this, a host with N open ports triggers N full-table sorts as its
+// ports stream in during the "all TCP" layer.
+let sortScheduled = false;
+function scheduleSort() {
+  if (sortScheduled) return;
+  sortScheduled = true;
+  requestAnimationFrame(() => {
+    sortScheduled = false;
+    sortRows();
+  });
 }
 
 function applyFilter() {

@@ -1,5 +1,6 @@
 'use strict';
 const net = require('net');
+const dgram = require('dgram');
 
 // Common/interesting TCP ports with human-readable service names.
 const SERVICES = {
@@ -64,7 +65,6 @@ const DEFAULT_PORTS = [
 
 // "Common" TCP layer = every named service port.
 const COMMON_PORTS = Object.keys(SERVICES).map(Number).sort((a, b) => a - b);
-const FULL_PORTS = COMMON_PORTS; // kept for backward compatibility
 
 // Common UDP ports worth probing (all 65535 UDP is impractical & noisy).
 const UDP_PORTS = [
@@ -128,8 +128,11 @@ function probePort(ip, port, timeout = 700) {
     });
     // Pre-connect timeout/error => closed (opened=false).
     // Post-connect timeout (banner grace elapsed) => open (opened=true).
+    // 'close' guards the case where the peer accepts then hangs up before the
+    // grace elapses — without it the probe would never settle and stall a worker.
     socket.once('timeout', done);
     socket.once('error', done);
+    socket.once('close', done);
     socket.connect(port, ip);
   });
 }
@@ -139,7 +142,6 @@ function probePort(ip, port, timeout = 700) {
 //   reply           -> open
 //   ICMP unreachable -> closed
 //   nothing          -> open|filtered (not reported to avoid false positives)
-const dgram = require('dgram');
 function probeUdp(ip, port, timeout = 1200) {
   return new Promise((resolve) => {
     let sock;
@@ -157,7 +159,9 @@ function probeUdp(ip, port, timeout = 1200) {
     } catch {
       return resolve({ port, proto: 'udp', state: 'error', banner: null });
     }
-    sock.on('error', () => finish('closed'));
+    // ECONNREFUSED == ICMP port-unreachable == definitively closed. Any other
+    // error (network unreachable, permission, etc.) is not a "closed" signal.
+    sock.on('error', (err) => finish(err && err.code === 'ECONNREFUSED' ? 'closed' : 'error'));
     sock.on('message', (msg) => finish('open', msg.length ? `${msg.length}B reply` : null));
     const payload = UDP_PROBES[port] || DEFAULT_UDP_PROBE;
     try {
@@ -177,7 +181,6 @@ module.exports = {
   SERVICES,
   DEFAULT_PORTS,
   COMMON_PORTS,
-  FULL_PORTS,
   UDP_PORTS,
   serviceName,
   probePort,

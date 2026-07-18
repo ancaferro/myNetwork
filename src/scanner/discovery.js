@@ -59,7 +59,7 @@ async function readArpTable() {
     if (map.size === 0) out = await run('arp', ['-n']);
   }
   if (map.size === 0) {
-    out = out || (await run('arp', PLATFORM === 'win32' ? ['-a'] : ['-a']));
+    out = out || (await run('arp', ['-a'])); // `arp -a` works on Windows and BSD/macOS alike
     // Matches both "? (10.0.0.1) at aa:bb:.." and win "10.0.0.1  aa-bb-.."
     const re = /(\d+\.\d+\.\d+\.\d+)[^\da-f]+([0-9a-f]{2}[:-][0-9a-f]{2}[:-][0-9a-f]{2}[:-][0-9a-f]{2}[:-][0-9a-f]{2}[:-][0-9a-f]{2})/gi;
     let m;
@@ -74,15 +74,19 @@ async function readArpTable() {
 // Returns { iface, gateway } for the interface carrying the default route,
 // or { iface: null, gateway: null } if none can be determined.
 async function defaultRoute() {
-  let out = '';
+  let out;
   if (PLATFORM === 'win32') {
     out = await run('powershell', [
       '-NoProfile',
       '-Command',
       "(Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Sort-Object RouteMetric | Select-Object -First 1 | ForEach-Object { $_.InterfaceAlias + ' ' + $_.NextHop })",
     ]);
-    const parts = out.trim().split(/\s+/);
-    if (parts.length >= 1 && parts[0]) return { iface: parts[0], gateway: parts[1] || null };
+    // Output is "<InterfaceAlias> <NextHop>". Aliases can contain spaces
+    // ("Local Area Connection"), so split on the LAST whitespace, not the first.
+    const line = out.trim();
+    const m = /^(.*\S)\s+(\S+)$/.exec(line);
+    if (m) return { iface: m[1], gateway: m[2] };
+    if (line) return { iface: line, gateway: null };
     return { iface: null, gateway: null };
   }
   if (PLATFORM === 'darwin') {
@@ -170,7 +174,7 @@ function udpQuery({ host, port, packet, timeout, parse, multicast }) {
     const timer = setTimeout(() => finish(null), timeout);
     sock.on('error', () => finish(null));
     sock.on('message', (msg) => {
-      let r = null;
+      let r;
       try { r = parse(msg); } catch { r = null; }
       if (r) finish(r); // else keep listening for a better responder until timeout
     });
@@ -251,6 +255,8 @@ function parseNbstat(buf) {
   const numNames = buf[p++];
   for (let i = 0; i < numNames; i++) {
     if (p + 18 > buf.length) break;
+    // NetBIOS names are null/space padded — strip trailing control bytes.
+    // eslint-disable-next-line no-control-regex
     const name = buf.toString('latin1', p, p + 15).replace(/[\x00-\x1f]+$/, '').trimEnd();
     const suffix = buf[p + 15];
     const isGroup = (buf.readUInt16BE(p + 16) & 0x8000) !== 0;
@@ -302,4 +308,12 @@ module.exports = {
   netbiosName,
   defaultRoute,
   PLATFORM,
+  // Exported for unit tests — pure wire-format builders/parsers.
+  cleanName,
+  encodeDnsName,
+  decodeDnsName,
+  buildMdnsQuery,
+  parseMdnsPtr,
+  buildNbstatQuery,
+  parseNbstat,
 };

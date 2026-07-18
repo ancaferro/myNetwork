@@ -1,13 +1,20 @@
 {
   "name": "mynetwork",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "myNetwork — cross-platform LAN & port scanner with a beautiful GUI",
   "main": "src/main.js",
   "author": "ancaferro <ancaferro@users.noreply.github.com>",
   "license": "MIT",
   "homepage": "https://github.com/ancaferro/myNetwork",
-  "repository": { "type": "git", "url": "https://github.com/ancaferro/myNetwork.git" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ancaferro/myNetwork.git"
+  },
   "scripts": {
+    "test": "node --test",
+    "test:coverage": "node --test --experimental-test-coverage",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "start": "electron .",
     "start:nosandbox": "electron . --no-sandbox",
     "dev": "electron . --dev --no-sandbox",
@@ -17,16 +24,40 @@
     "dist:mac": "electron-builder --mac"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "electron": "^31.0.0",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^24.13.3",
+    "eslint": "^10.7.0",
+    "globals": "^17.7.0"
   },
   "build": {
     "appId": "com.mynetwork.app",
     "productName": "myNetwork",
     "icon": "build/icon.png",
-    "files": ["src/**/*", "build/icon.png", "package.json"],
-    "linux": { "target": ["AppImage", "deb"], "category": "Network", "icon": "build/icon.png", "maintainer": "ancaferro <ancaferro@users.noreply.github.com>" },
-    "win": { "target": ["nsis"] },
-    "mac": { "target": ["dmg"], "category": "public.app-category.utilities" }
+    "files": [
+      "src/**/*",
+      "build/icon.png",
+      "package.json"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Network",
+      "icon": "build/icon.png",
+      "maintainer": "ancaferro <ancaferro@users.noreply.github.com>"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.utilities"
+    }
   }
 }

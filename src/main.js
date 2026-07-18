@@ -147,7 +147,9 @@ ipcMain.handle('scan:start', (event, opts) => {
     if (currentScan === scan) currentScan = null;
   });
 
-  scan.start();
+  // start() handles its own known errors via emit('error'); this catch is a
+  // backstop so any unexpected throw still reaches the UI instead of vanishing.
+  scan.start().catch((e) => send('scan:error', (e && e.message) || String(e)));
   return { ok: true };
 });
 

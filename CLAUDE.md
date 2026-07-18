@@ -23,7 +23,9 @@ npm run dist:win       # NSIS
 npm run dist:mac       # dmg
 ```
 
-There is **no test suite and no linter**. CI (`.github/workflows/ci.yml`) only runs `node --check` on every `src/**/*.js`, so keep sources syntactically parseable by plain Node (no TypeScript, no bundler, CommonJS `require`). Releases build automatically when a `v*` tag is pushed (`release.yml`).
+Tests use the built-in Node test runner — **no test dependencies**. `npm test` runs `node --test` (discovers `test/*.test.js`); `npm run test:coverage` adds `--experimental-test-coverage`. Run one file with `node --test test/ports.test.js`. Tests cover the pure logic (target parsing, service/port tables, OUI lookup, mDNS/NetBIOS wire builders+parsers) and use only localhost sockets — no real network. The network shellouts in `discovery.js` (ping/arp/live mDNS) are intentionally left to manual/integration testing.
+
+Linting is ESLint (flat config, `eslint.config.js`): `npm run lint` / `npm run lint:fix`. Two file groups — Node/CommonJS for `main`/`preload`/`scanner`/`test`, browser/script for `renderer` (loaded as a plain `<script>`, so no `require`). Empty catches are allowed (intentional best-effort pattern). CI (`.github/workflows/ci.yml`) runs `node --check` on every `src/**/*.js`, then `npm run lint`, `npm test`, and the coverage report, so keep sources syntactically parseable by plain Node (no TypeScript, no bundler, CommonJS `require`). Releases build automatically when a `v*` tag is pushed (`release.yml`).
 
 ## Architecture
 

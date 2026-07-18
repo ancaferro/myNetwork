@@ -1,7 +1,7 @@
 'use strict';
 const { EventEmitter } = require('events');
-const { expandTargets } = require('./net-utils');
-const { ping, readArpTable, resolveHostname } = require('./discovery');
+const { expandTargets, ipToInt } = require('./net-utils');
+const { pingAlive, readArpTable, resolveHostname } = require('./discovery');
 const {
   DEFAULT_PORTS,
   COMMON_PORTS,
@@ -60,6 +60,10 @@ class Scan extends EventEmitter {
       pingTimeout = 1000,
       portTimeout = 700,
       udpTimeout = 1200,
+      // hostConcurrency drives the discovery ping sweep directly. For the port
+      // layers it (and portConcurrency) are only upper bounds — both get clamped
+      // by SOCKET_CAP below (hostWorkers<=24, effPortConc<=SOCKET_CAP/hostWorkers),
+      // so the effective values are lower. See the derivation near SOCKET_CAP.
       hostConcurrency = 80,
       portConcurrency = 200,
     } = this.opts;
@@ -122,7 +126,9 @@ class Scan extends EventEmitter {
       hostConcurrency,
       async (ip) => {
         if (this.cancelled) return;
-        const r = await ping(ip, pingTimeout);
+        // Retry once: an alive host that drops a single ICMP packet still counts.
+        // (ARP discovery above already catches many hosts regardless of ping.)
+        const r = await pingAlive(ip, pingTimeout, 2);
         if (r.alive) {
           if (!live.has(ip)) live.set(ip, { rtt: r.rtt });
           else live.get(ip).rtt = r.rtt;
@@ -133,9 +139,9 @@ class Scan extends EventEmitter {
     if (this.cancelled) return this.emit('done', { cancelled: true });
 
     const arp2 = await readArpTable().catch(() => new Map());
-    const liveIps = [...live.keys()].sort(
-      (a, b) => parseInt(a.split('.')[3]) - parseInt(b.split('.')[3])
-    );
+    // Order by full 32-bit value so multi-subnet scans (e.g. "10.0.0.0/24,
+    // 192.168.1.0/24") sort correctly, not just by the last octet.
+    const liveIps = [...live.keys()].sort((a, b) => ipToInt(a) - ipToInt(b));
 
     // Resolve hostname + vendor, emit initial rows (ports fill in later layers).
     await pool(liveIps, 24, async (ip) => {

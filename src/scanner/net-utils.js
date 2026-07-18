@@ -1,6 +1,10 @@
 'use strict';
 const os = require('os');
 
+// Upper bound on how many hosts one target may expand to. Guards against a typo
+// like "10.0.0.0/8" (16M hosts) or "/0" allocating until the process dies.
+const MAX_HOSTS = 65536;
+
 // ---- IPv4 <-> integer -------------------------------------------------------
 function ipToInt(ip) {
   const p = ip.split('.').map(Number);
@@ -15,7 +19,7 @@ function intToIp(n) {
 }
 
 // ---- CIDR parsing -----------------------------------------------------------
-// Accepts "10.0.0.0/24", "10.0.0.5/24", a plain "10.0.0.0" (assumes /24),
+// Accepts "10.0.0.0/24", "10.0.0.5/24", a bare "10.0.0.5" (a single host, /32),
 // or a range "10.0.0.1-10.0.0.50".
 function parseTargets(input) {
   const raw = String(input || '').trim();
@@ -26,11 +30,14 @@ function parseTargets(input) {
     const start = ipToInt(a);
     const end = ipToInt(b);
     if (end < start) throw new Error('Range end is before start');
-    return { cidr: raw, first: start, last: end, count: end - start + 1 };
+    const count = end - start + 1;
+    if (count > MAX_HOSTS) throw new Error(`Range too large: ${count} hosts (max ${MAX_HOSTS})`);
+    return { cidr: raw, first: start, last: end, count };
   }
 
-  let [ip, bitsStr] = raw.split('/');
-  const bits = bitsStr === undefined ? 24 : parseInt(bitsStr, 10);
+  const [ip, bitsStr] = raw.split('/');
+  // A bare address means "just this host" (/32), not a whole /24 sweep.
+  const bits = bitsStr === undefined ? 32 : parseInt(bitsStr, 10);
   if (Number.isNaN(bits) || bits < 0 || bits > 32) throw new Error(`Invalid prefix /${bitsStr}`);
 
   const ipInt = ipToInt(ip);
@@ -45,7 +52,9 @@ function parseTargets(input) {
     first = (network + 1) >>> 0;
     last = (broadcast - 1) >>> 0;
   }
-  return { cidr: `${intToIp(network)}/${bits}`, first, last, count: last - first + 1 };
+  const count = last - first + 1;
+  if (count > MAX_HOSTS) throw new Error(`Subnet too large: ${count} hosts (max ${MAX_HOSTS})`);
+  return { cidr: `${intToIp(network)}/${bits}`, first, last, count };
 }
 
 function* iterateHosts(targets) {
@@ -65,13 +74,14 @@ function expandTargets(input) {
   const seen = new Set();
   const ips = [];
   for (const spec of specs) {
-    const t = parseTargets(spec); // throws on invalid — surfaces to caller
+    const t = parseTargets(spec); // throws on invalid (incl. too-large) — surfaces to caller
     for (const ip of iterateHosts(t)) {
       if (!seen.has(ip)) {
         seen.add(ip);
         ips.push(ip);
       }
     }
+    if (ips.length > MAX_HOSTS) throw new Error(`Too many hosts: over ${MAX_HOSTS}`);
   }
   return { label: specs.join(', '), ips };
 }
