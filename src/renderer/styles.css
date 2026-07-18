@@ -294,4 +294,6 @@ tr.sel .port { background: #fff; }
 .xp-dialog-body { display: flex; gap: 14px; padding: 16px; align-items: center; }
 .xp-dialog-body p { margin-bottom: 3px; font-size: 11px; }
 .xp-dialog-body .dim { color: #5a5a4d; font-size: 10px; margin-top: 4px; }
+.ext-link { color: #0a53e9; text-decoration: none; cursor: pointer; font-size: 11px; }
+.ext-link:hover { text-decoration: underline; }
 .xp-dialog-foot { display: flex; justify-content: flex-end; padding: 0 16px 14px; }

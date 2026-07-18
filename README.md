@@ -19,6 +19,14 @@ TCP + UDP ports — with live monitoring and export.
 
 <sub>Screenshot shows synthetic demo data.</sub>
 
+### Download
+
+<a href="https://github.com/ancaferro/myNetwork/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Download for Windows" /></a>
+<a href="https://github.com/ancaferro/myNetwork/releases/latest"><img src="https://img.shields.io/badge/Download-macOS-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download for macOS" /></a>
+<a href="https://github.com/ancaferro/myNetwork/releases/latest"><img src="https://img.shields.io/badge/Download-Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Download for Linux" /></a>
+
+<sub>Grabs the latest release — Windows installer (.exe), macOS (.dmg), Linux (.AppImage / .deb).</sub>
+
 </div>
 
 ---

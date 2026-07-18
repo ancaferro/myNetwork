@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, dialog, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Notification, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { Scan } = require('./scanner');
@@ -169,6 +169,17 @@ ipcMain.handle('win:maximize', () => {
   else win.maximize();
 });
 ipcMain.handle('win:close', () => win && win.close());
+
+// Open a link in the user's default browser. Only http(s) is allowed so a
+// stray URL can't launch file:// or other schemes.
+ipcMain.handle('open-external', (event, url) => {
+  try {
+    const u = new URL(String(url));
+    if (u.protocol === 'http:' || u.protocol === 'https:') shell.openExternal(u.href);
+  } catch {
+    /* malformed URL — ignore */
+  }
+});
 
 // ---- CSV export -------------------------------------------------------------
 function csvCell(v) {

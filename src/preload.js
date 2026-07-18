@@ -7,6 +7,7 @@ const { version } = require('../package.json');
 contextBridge.exposeInMainWorld('api', {
   version,
   copy: (text) => clipboard.writeText(String(text)),
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
   getInterfaces: () => ipcRenderer.invoke('interfaces'),
   startScan: (opts) => ipcRenderer.invoke('scan:start', opts),
   cancelScan: () => ipcRenderer.invoke('scan:cancel'),

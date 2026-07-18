@@ -195,6 +195,11 @@ function wireEvents() {
   wireMenus();
   $('#about-ok').addEventListener('click', hideAbout);
   $('#about-close').addEventListener('click', hideAbout);
+  // External links must open in the default browser, not navigate the app window.
+  $('#about-github').addEventListener('click', (e) => {
+    e.preventDefault();
+    window.api.openExternal(e.currentTarget.href);
+  });
 }
 
 // ---- Menu bar ---------------------------------------------------------------
