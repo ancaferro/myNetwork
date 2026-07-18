@@ -21,11 +21,11 @@ TCP + UDP ports — with live monitoring and export.
 
 ### Download
 
-<a href="https://github.com/ancaferro/myNetwork/releases/latest"><img src="https://img.shields.io/badge/Download-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Download for Windows" /></a>
-<a href="https://github.com/ancaferro/myNetwork/releases/latest"><img src="https://img.shields.io/badge/Download-macOS-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download for macOS" /></a>
-<a href="https://github.com/ancaferro/myNetwork/releases/latest"><img src="https://img.shields.io/badge/Download-Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Download for Linux" /></a>
+<a href="https://github.com/ancaferro/myNetwork/releases/latest/download/myNetwork-windows.exe"><img src="https://img.shields.io/badge/Download-Windows-0078D6?style=for-the-badge&logo=windows&logoColor=white" alt="Download for Windows" /></a>
+<a href="https://github.com/ancaferro/myNetwork/releases/latest/download/myNetwork-macos.dmg"><img src="https://img.shields.io/badge/Download-macOS-000000?style=for-the-badge&logo=apple&logoColor=white" alt="Download for macOS" /></a>
+<a href="https://github.com/ancaferro/myNetwork/releases/latest/download/myNetwork-linux.AppImage"><img src="https://img.shields.io/badge/Download-Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black" alt="Download for Linux" /></a>
 
-<sub>Grabs the latest release — Windows installer (.exe), macOS (.dmg), Linux (.AppImage / .deb).</sub>
+<sub>Direct download of the latest release — Windows <code>.exe</code>, macOS <code>.dmg</code>, Linux <a href="https://github.com/ancaferro/myNetwork/releases/latest/download/myNetwork-linux.AppImage"><code>.AppImage</code></a> or <a href="https://github.com/ancaferro/myNetwork/releases/latest/download/myNetwork-linux.deb"><code>.deb</code></a>.</sub>
 
 </div>
 

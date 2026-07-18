@@ -1,6 +1,6 @@
 {
   "name": "mynetwork",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "myNetwork — cross-platform LAN & port scanner with a beautiful GUI",
   "main": "src/main.js",
   "author": "ancaferro <ancaferro@users.noreply.github.com>",
@@ -58,6 +58,18 @@
         "dmg"
       ],
       "category": "public.app-category.utilities"
+    },
+    "nsis": {
+      "artifactName": "myNetwork-windows.${ext}"
+    },
+    "dmg": {
+      "artifactName": "myNetwork-macos.${ext}"
+    },
+    "appImage": {
+      "artifactName": "myNetwork-linux.${ext}"
+    },
+    "deb": {
+      "artifactName": "myNetwork-linux.${ext}"
     }
   }
 }
