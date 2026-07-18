@@ -41,6 +41,12 @@ let startedAt = 0;
 
 // ---- Init -------------------------------------------------------------------
 async function init() {
+  // Stamp the version (from package.json via preload) into the title bar + About.
+  const v = window.api.version;
+  if (v) {
+    $('#app-title').textContent = `myNetwork v${v}`;
+    $('#app-version').textContent = `v${v}`;
+  }
   // Wire the UI first so a failing interface lookup can't leave the buttons dead.
   wireEvents();
   wireIpc();

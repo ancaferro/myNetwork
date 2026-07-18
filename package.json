@@ -1,6 +1,6 @@
 {
   "name": "mynetwork",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "myNetwork — cross-platform LAN & port scanner with a beautiful GUI",
   "main": "src/main.js",
   "author": "ancaferro <ancaferro@users.noreply.github.com>",

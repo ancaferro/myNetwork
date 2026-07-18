@@ -1,7 +1,11 @@
 'use strict';
 const { contextBridge, ipcRenderer, clipboard } = require('electron');
+// Single source of truth for the version — bumped in package.json on release,
+// so the UI updates automatically without touching any markup.
+const { version } = require('../package.json');
 
 contextBridge.exposeInMainWorld('api', {
+  version,
   copy: (text) => clipboard.writeText(String(text)),
   getInterfaces: () => ipcRenderer.invoke('interfaces'),
   startScan: (opts) => ipcRenderer.invoke('scan:start', opts),
