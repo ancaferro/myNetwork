@@ -1,5 +1,5 @@
 'use strict';
-const { execFile } = require('child_process');
+const { execFile, spawn } = require('child_process');
 const dgram = require('dgram');
 const os = require('os');
 const dns = require('dns').promises;
@@ -97,11 +97,35 @@ async function defaultRoute() {
   }
   // linux
   out = await run('ip', ['route', 'show', 'default']);
-  // e.g. "default via 192.0.2.1 dev eth0 proto dhcp src 192.0.2.10 metric 600"
-  const m = /default\s+via\s+(\d+\.\d+\.\d+\.\d+)\s+dev\s+(\S+)/.exec(out);
-  if (m) return { iface: m[2], gateway: m[1] };
-  const m2 = /default\b.*?\bdev\s+(\S+)/.exec(out);
-  return { iface: m2 ? m2[1] : null, gateway: null };
+  // Multi-homed hosts (wired + wifi up at once) legitimately have several
+  // `default via ...` lines. Pick the one the kernel would actually use --
+  // lowest metric wins, first line breaks ties (issue #2).
+  const routes = parseLinuxDefaultRoutes(out);
+  if (routes.length > 0) return { iface: routes[0].iface, gateway: routes[0].gateway };
+  return { iface: null, gateway: null };
+}
+
+// Parse `ip route show default` output that may contain several default
+// routes. Exported for tests. Lines look like:
+//   "default via 192.0.2.1 dev eth0 proto dhcp src 192.0.2.10 metric 600"
+// `via`/`metric` are optional (point-to-point links, no explicit metric).
+function parseLinuxDefaultRoutes(out) {
+  const routes = [];
+  for (const raw of String(out || '').split('\n')) {
+    const line = raw.trim();
+    if (!line.startsWith('default')) continue;
+    const dev = /\bdev\s+(\S+)/.exec(line);
+    if (!dev) continue;
+    const via = /\bvia\s+(\d+\.\d+\.\d+\.\d+)/.exec(line);
+    const met = /\bmetric\s+(\d+)/.exec(line);
+    routes.push({
+      iface: dev[1],
+      gateway: via ? via[1] : null,
+      metric: met ? parseInt(met[1], 10) : 0,
+    });
+  }
+  routes.sort((a, b) => a.metric - b.metric);
+  return routes;
 }
 
 // ---- Name resolution --------------------------------------------------------
@@ -307,6 +331,7 @@ module.exports = {
   mdnsReverse,
   netbiosName,
   defaultRoute,
+  parseLinuxDefaultRoutes,
   PLATFORM,
   // Exported for unit tests — pure wire-format builders/parsers.
   cleanName,
