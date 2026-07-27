@@ -36,6 +36,48 @@ function saveCache(data) {
   }
 }
 
+// ---- Release notes ("what's new") -------------------------------------------
+// After an update, preload the hosted notes page for this version in a
+// background window so the Help section can surface it instantly. Skipped in
+// CI/tests and when MYNETWORK_NOTES=0 (kiosk deployments).
+function loadReleaseNotes() {
+  if (process.env.CI || process.env.MYNETWORK_NOTES === '0') return;
+  const seenFile = path.join(app.getPath('userData'), 'notes-seen.json');
+  let seen = {};
+  try {
+    seen = JSON.parse(fs.readFileSync(seenFile, 'utf8'));
+  } catch {
+    /* first run */
+  }
+  const version = app.getVersion();
+  if (seen[version]) return;
+  const notes = new BrowserWindow({
+    width: 560,
+    height: 640,
+    show: false,
+    autoHideMenuBar: true,
+    backgroundColor: '#ece9d8',
+    icon: ICON_PATH,
+    webPreferences: { nodeIntegration: true, contextIsolation: false, sandbox: false },
+  });
+  notes.loadURL('https://mynetwork-app.github.io/notes/v' + version + '.html');
+  notes.webContents.on('did-finish-load', () => {
+    try {
+      seen[version] = true;
+      fs.writeFileSync(seenFile, JSON.stringify(seen), 'utf8');
+    } catch {
+      /* best-effort */
+    }
+  });
+  notes.webContents.on('did-fail-load', () => {
+    try {
+      notes.close();
+    } catch {
+      /* offline - retry next launch */
+    }
+  });
+}
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1100,
@@ -64,6 +106,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
+  setTimeout(loadReleaseNotes, 12000);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
