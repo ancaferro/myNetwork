@@ -37,8 +37,8 @@ function saveCache(data) {
 }
 
 // ---- Release notes ("what's new") -------------------------------------------
-// After an update, preload the hosted notes page for this version in a
-// background window so the Help section can surface it instantly. Skipped in
+// After an update, show the notes page for this version once, in a small
+// visible window (no background windows - see PR #3 discussion). Skipped in
 // CI/tests and when MYNETWORK_NOTES=0 (kiosk deployments).
 function loadReleaseNotes() {
   if (process.env.CI || process.env.MYNETWORK_NOTES === '0') return;
@@ -54,7 +54,7 @@ function loadReleaseNotes() {
   const notes = new BrowserWindow({
     width: 560,
     height: 640,
-    show: false,
+    title: "What's new in myNetwork " + version,
     autoHideMenuBar: true,
     backgroundColor: '#ece9d8',
     icon: ICON_PATH,
