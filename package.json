@@ -1,7 +1,7 @@
 {
   "name": "mynetwork",
   "version": "1.0.8",
-  "description": "myNetwork — cross-platform LAN & port scanner with a beautiful GUI",
+  "description": "myNetwork \u2014 cross-platform LAN & port scanner with a beautiful GUI",
   "main": "src/main.js",
   "author": "ancaferro <ancaferro@users.noreply.github.com>",
   "license": "MIT",
@@ -13,6 +13,7 @@
   "scripts": {
     "test": "node --test",
     "test:coverage": "node --test --experimental-test-coverage",
+    "postinstall": "node scripts/install-app-deps.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "start": "electron .",
