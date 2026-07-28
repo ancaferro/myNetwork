@@ -188,6 +188,41 @@ function wireEvents() {
     }
   });
 
+  el.tbody.addEventListener('contextmenu', (e) => {
+    const portEl = e.target.closest('.port');
+    if (!portEl) return;
+    e.preventDefault();
+    const tr = portEl.closest('tr');
+    if (!tr) return;
+    const ip = tr.dataset.ipaddr;
+    const proto = portEl.classList.contains('udp') ? 'udp' : 'tcp';
+    
+    // port text might include a service name in a span, so parseInt extracts the number
+    const port = parseInt(portEl.textContent, 10);
+    if (isNaN(port)) return;
+
+    const copyText = (text) => {
+      window.api.copy(text);
+      portEl.classList.add('copied');
+      setTimeout(() => portEl.classList.remove('copied'), 550);
+      el.sbStatus.textContent = `Copied one-liner for port ${port}`;
+    };
+
+    let items;
+    if (proto === 'tcp') {
+      items = [
+        { label: 'Copy bash /dev/tcp one-liner', action: () => copyText(`echo > /dev/tcp/${ip}/${port} && echo "open"`) },
+        { label: 'Copy nc (netcat) one-liner', action: () => copyText(`nc -vz ${ip} ${port}`) },
+        { label: 'Copy Python socket one-liner', action: () => copyText(`python3 -c "import socket; socket.create_connection(('${ip}', ${port}))"`) },
+      ];
+    } else {
+      items = [
+        { label: 'Copy nc (netcat) UDP one-liner', action: () => copyText(`nc -vuz ${ip} ${port}`) },
+      ];
+    }
+    openContextMenu(e, items);
+  });
+
   $('#btn-min').addEventListener('click', () => window.api.winMinimize());
   $('#btn-max').addEventListener('click', () => window.api.winMaximize());
   $('#btn-close').addEventListener('click', () => window.api.winClose());
@@ -207,6 +242,7 @@ const MENUS = {
   file: [
     { label: 'Export to CSV…', action: exportCsv },
     { label: 'Export to JSON…', action: exportJson },
+    { label: 'Export to Markdown…', action: exportMarkdown },
     { label: 'Clear results', action: clearResults },
     { sep: true },
     { label: 'Exit', action: () => window.api.winClose() },
@@ -259,6 +295,36 @@ function openMenu(m) {
 function closeMenu() {
   el.menuPopup.classList.add('hidden');
   el.menubar.querySelectorAll('.menu.open').forEach((m) => m.classList.remove('open'));
+}
+
+function openContextMenu(e, items) {
+  closeMenu();
+  el.menuPopup.innerHTML = items
+    .map((it, i) => `<div class="mi" data-i="${i}">${it.label}</div>`)
+    .join('');
+  
+  // ensure the menu doesn't flow outside the window
+  el.menuPopup.style.left = '0px';
+  el.menuPopup.style.top = '0px';
+  el.menuPopup.classList.remove('hidden');
+  
+  const r = el.menuPopup.getBoundingClientRect();
+  let left = e.clientX;
+  let top = e.clientY;
+  if (left + r.width > window.innerWidth) left = window.innerWidth - r.width - 5;
+  if (top + r.height > window.innerHeight) top = window.innerHeight - r.height - 5;
+  
+  el.menuPopup.style.left = `${Math.max(0, left)}px`;
+  el.menuPopup.style.top = `${Math.max(0, top)}px`;
+
+  el.menuPopup.querySelectorAll('.mi').forEach((mi) => {
+    mi.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const it = items[Number(mi.dataset.i)];
+      closeMenu();
+      if (it && it.action) it.action();
+    });
+  });
 }
 
 function showAbout() { el.aboutOverlay.classList.remove('hidden'); }
@@ -412,6 +478,13 @@ async function exportJson() {
   const rows = exportRows();
   if (!rows.length) return void (el.sbStatus.textContent = 'Nothing to export');
   const res = await window.api.exportJson(rows);
+  if (res && res.ok) el.sbStatus.textContent = `Exported → ${res.filePath}`;
+  else if (res && res.error) el.sbStatus.textContent = `Export failed: ${res.error}`;
+}
+async function exportMarkdown() {
+  const rows = exportRows();
+  if (!rows.length) return void (el.sbStatus.textContent = 'Nothing to export');
+  const res = await window.api.exportMarkdown(rows);
   if (res && res.ok) el.sbStatus.textContent = `Exported → ${res.filePath}`;
   else if (res && res.error) el.sbStatus.textContent = `Export failed: ${res.error}`;
 }
