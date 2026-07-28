@@ -97,11 +97,56 @@ async function defaultRoute() {
   }
   // linux
   out = await run('ip', ['route', 'show', 'default']);
-  // e.g. "default via 192.0.2.1 dev eth0 proto dhcp src 192.0.2.10 metric 600"
-  const m = /default\s+via\s+(\d+\.\d+\.\d+\.\d+)\s+dev\s+(\S+)/.exec(out);
-  if (m) return { iface: m[2], gateway: m[1] };
-  const m2 = /default\b.*?\bdev\s+(\S+)/.exec(out);
-  return { iface: m2 ? m2[1] : null, gateway: null };
+  const routes = parseLinuxDefaultRoutes(out);
+  if (routes.length) return { iface: routes[0].iface, gateway: routes[0].gateway };
+  return { iface: null, gateway: null };
+}
+
+// Pull the `dev` / `via` / `metric` fields out of one `ip route` line.
+function routeFields(line) {
+  const dev = /\bdev\s+(\S+)/.exec(line);
+  const via = /\bvia\s+(\d+\.\d+\.\d+\.\d+)/.exec(line);
+  const metric = /\bmetric\s+(\d+)/.exec(line);
+  return {
+    iface: dev ? dev[1] : null,
+    gateway: via ? via[1] : null,
+    // A route printed without an explicit metric has metric 0 in the kernel,
+    // which makes it the *most* preferred one — not the least.
+    metric: metric ? parseInt(metric[1], 10) : 0,
+  };
+}
+
+// Parse `ip route show default`, which on multi-homed hosts (wired + wifi, or
+// anything with a VPN/docker bridge up) legitimately lists several routes:
+//   default via 192.0.2.1 dev eth0 proto dhcp src 192.0.2.10 metric 100
+//   default via 198.51.100.1 dev wlan0 proto dhcp metric 600
+// Returned lowest-metric-first, i.e. in the order the kernel itself would
+// prefer them; ties keep the order the kernel printed them in. Exported for
+// tests.
+function parseLinuxDefaultRoutes(out) {
+  const routes = [];
+  let multipath = null; // a `default` line whose devices come on nexthop lines
+  for (const raw of String(out || '').split('\n')) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (line.startsWith('default')) {
+      const route = routeFields(line);
+      if (route.iface) routes.push(route);
+      multipath = route.iface ? null : route;
+      continue;
+    }
+    // ECMP form: the default line carries the metric and each device follows
+    // on its own "nexthop via 192.0.2.1 dev eth0 weight 1" line.
+    if (multipath && line.startsWith('nexthop')) {
+      const hop = routeFields(line);
+      if (hop.iface) {
+        routes.push({ iface: hop.iface, gateway: hop.gateway, metric: multipath.metric });
+        multipath = null; // equal-cost hops are interchangeable; the first will do
+      }
+    }
+  }
+  routes.sort((a, b) => a.metric - b.metric);
+  return routes;
 }
 
 // ---- Name resolution --------------------------------------------------------
@@ -309,6 +354,7 @@ module.exports = {
   defaultRoute,
   PLATFORM,
   // Exported for unit tests — pure wire-format builders/parsers.
+  parseLinuxDefaultRoutes,
   cleanName,
   encodeDnsName,
   decodeDnsName,
