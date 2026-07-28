@@ -18,9 +18,17 @@ module.exports = [
   { ignores: ['node_modules/**', 'dist/**', 'build/**', 'docs/**'] },
   js.configs.recommended,
 
-  // Node context: main process, preload, the reusable scanner core, and tests.
+  // Node context: main process, preload, the reusable scanner core, repo
+  // tooling, and tests.
   {
-    files: ['src/main.js', 'src/preload.js', 'src/scanner/**/*.js', 'test/**/*.js', 'eslint.config.js'],
+    files: [
+      'src/main.js',
+      'src/preload.js',
+      'src/scanner/**/*.js',
+      'scripts/**/*.js',
+      'test/**/*.js',
+      'eslint.config.js',
+    ],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'commonjs',
