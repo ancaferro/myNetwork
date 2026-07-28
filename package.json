@@ -13,6 +13,7 @@
   "scripts": {
     "test": "node --test",
     "test:coverage": "node --test --experimental-test-coverage",
+    "audit": "node scripts/audit-supply-chain.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "start": "electron .",
