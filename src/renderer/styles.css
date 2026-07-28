@@ -148,6 +148,15 @@ input#search { flex: 1; }
 .xp-btn.scanning { color: #7a0000; }
 .xp-btn.active { background: linear-gradient(to bottom, #d7ecd9, #b6dcbb 46%, #a3d0aa 54%, #cbe7cf); border-color: #3f8f4a; color: #14521d; font-weight: bold; }
 
+/* ===== Quick check ===== */
+#quickInput { flex: 1; min-width: 160px; }
+.quick-result { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.quick-result .qc-part { margin-right: 10px; }
+.quick-result .qc-open { color: #1a6b32; font-weight: bold; }
+.quick-result .qc-closed { color: #7a0000; }
+.quick-result .qc-filtered { color: #7a5b00; }
+.quick-result .qc-error { color: #7a0000; font-style: italic; }
+
 /* ===== Filter bar ===== */
 .xp-filterbar {
   flex-shrink: 0; display: flex; align-items: center; gap: 6px;

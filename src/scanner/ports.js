@@ -173,6 +173,52 @@ function probeUdp(ip, port, timeout = 1200) {
   });
 }
 
+// Like probePort(), but for a single-host "is this reachable?" check we also
+// want *why* it's closed:
+//   open     - TCP handshake completed
+//   closed   - OS actively refused (ECONNREFUSED / ECONNRESET) — host is up,
+//              nothing is listening on this port
+//   filtered - nothing came back before the timeout — likely a firewall
+//              dropping the packets rather than the host rejecting them
+// probePort() itself is left untouched: main.js's live monitor and the scan
+// layers already depend on its simpler { open, banner } shape.
+function probePortDetailed(ip, port, timeout = 2000) {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    let settled = false;
+    let banner = '';
+
+    const done = (state) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolve({ port, state, banner: banner.trim() || null });
+    };
+
+    socket.setTimeout(timeout);
+    socket.once('connect', () => {
+      // Handshake done — give the server a brief grace period for a banner,
+      // then report open either way. socket.connecting is now false, which
+      // is how the 'timeout' handler below tells this apart from a real
+      // pre-connect timeout.
+      socket.setTimeout(300);
+    });
+    socket.once('data', (buf) => {
+      banner = buf.toString('latin1').split('\n')[0].slice(0, 80);
+      done('open');
+    });
+    socket.once('timeout', () => done(socket.connecting ? 'filtered' : 'open'));
+    socket.once('error', (err) => {
+      const refused = err && (err.code === 'ECONNREFUSED' || err.code === 'ECONNRESET');
+      done(refused ? 'closed' : 'filtered');
+    });
+    // Guards the case where the peer accepts then hangs up before the banner
+    // grace elapses (mirrors probePort()'s use of the same event).
+    socket.once('close', () => done('open'));
+    socket.connect(port, ip);
+  });
+}
+
 function allTcpPorts() {
   return Array.from({ length: 65535 }, (_, i) => i + 1);
 }
@@ -184,6 +230,7 @@ module.exports = {
   UDP_PORTS,
   serviceName,
   probePort,
+  probePortDetailed,
   probeUdp,
   allTcpPorts,
 };

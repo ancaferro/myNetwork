@@ -12,6 +12,9 @@ const el = {
   portTimeout: $('#portTimeout'),
   scanBtn: $('#scanBtn'),
   monitorBtn: $('#monitorBtn'),
+  quickInput: $('#quickInput'),
+  quickBtn: $('#quickBtn'),
+  quickResult: $('#quickResult'),
   clearBtn: $('#clearBtn'),
   search: $('#search'),
   preserve: $('#preserve'),
@@ -148,6 +151,11 @@ function wireEvents() {
     if (e.key === 'Enter' && !scanning) startScan();
   });
   el.search.addEventListener('input', applyFilter);
+
+  el.quickBtn.addEventListener('click', runQuickCheck);
+  el.quickInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') runQuickCheck();
+  });
 
   el.thead.querySelectorAll('th.sortable').forEach((th) => {
     th.addEventListener('click', () => {
@@ -370,6 +378,57 @@ function clearResults() {
   resetResults();
   el.empty.classList.remove('hidden');
   el.sbStatus.textContent = 'Ready';
+}
+
+// ---- Quick check (issue #6) ---------------------------------------------
+// One-shot "is this host:port reachable?" lookup — separate from the
+// streamed scan:* pipeline above, since it's a single request/response.
+async function runQuickCheck() {
+  const input = el.quickInput.value.trim();
+  if (!input) return;
+
+  el.quickBtn.disabled = true;
+  el.quickResult.textContent = 'Checking…';
+  el.quickResult.className = 'quick-result';
+
+  try {
+    const res = await window.api.quickCheck(input);
+    renderQuickResult(res);
+  } catch (e) {
+    el.quickResult.innerHTML = `<span class="qc-error">${esc(e.message || String(e))}</span>`;
+  } finally {
+    el.quickBtn.disabled = false;
+  }
+}
+
+function renderQuickResult(res) {
+  if (!res || !res.ok) {
+    el.quickResult.innerHTML = `<span class="qc-error">${esc((res && res.error) || 'Check failed')}</span>`;
+    return;
+  }
+  const r = res.result;
+  const parts = [];
+
+  if (!r.resolved) {
+    parts.push(`<span class="qc-part qc-closed">DNS: did not resolve (${esc(r.dnsError || 'unknown error')})</span>`);
+    el.quickResult.innerHTML = parts.join('');
+    return;
+  }
+
+  parts.push(`<span class="qc-part">DNS: ${esc(r.ip)}</span>`);
+  parts.push(
+    `<span class="qc-part ${r.icmp.alive ? 'qc-open' : 'qc-filtered'}">` +
+      `ICMP: ${r.icmp.alive ? `alive (${r.icmp.rtt != null ? r.icmp.rtt + ' ms' : 'no rtt'})` : 'no reply'}</span>`
+  );
+
+  for (const p of r.ports) {
+    const label = p.state === 'open' ? 'open' : p.state === 'closed' ? 'closed (refused)' : 'filtered (timed out)';
+    parts.push(
+      `<span class="qc-part qc-${esc(p.state)}">${p.port}${p.service ? '/' + esc(p.service) : ''}: ${label}</span>`
+    );
+  }
+
+  el.quickResult.innerHTML = parts.join('');
 }
 
 function startTimer() {

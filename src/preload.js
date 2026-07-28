@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld('api', {
   copy: (text) => clipboard.writeText(String(text)),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   getInterfaces: () => ipcRenderer.invoke('interfaces'),
+  quickCheck: (input) => ipcRenderer.invoke('quickcheck:run', input),
   startScan: (opts) => ipcRenderer.invoke('scan:start', opts),
   cancelScan: () => ipcRenderer.invoke('scan:cancel'),
   getCache: () => ipcRenderer.invoke('cache:get'),

@@ -6,6 +6,7 @@ const { Scan } = require('./scanner');
 const { detectInterfaces } = require('./scanner/net-utils');
 const { defaultRoute, pingAlive } = require('./scanner/discovery');
 const { probePort, serviceName, DEFAULT_PORTS } = require('./scanner/ports');
+const { quickCheck } = require('./scanner/quickcheck');
 
 const ICON_PATH = path.join(__dirname, '..', 'build', 'icon.png');
 
@@ -110,6 +111,16 @@ ipcMain.handle('cache:clear', () => {
     /* already gone */
   }
   return { ok: true };
+});
+
+// One-shot "is this host:port reachable?" check — a single call/response,
+// unlike the streamed scan:* events below (see quickCheck's own docstring).
+ipcMain.handle('quickcheck:run', async (event, input) => {
+  try {
+    return { ok: true, result: await quickCheck(input) };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
 });
 
 ipcMain.handle('scan:start', (event, opts) => {
