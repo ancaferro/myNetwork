@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('api', {
   getInterfaces: () => ipcRenderer.invoke('interfaces'),
   startScan: (opts) => ipcRenderer.invoke('scan:start', opts),
   cancelScan: () => ipcRenderer.invoke('scan:cancel'),
+  quickCheck: (input) => ipcRenderer.invoke('quick:check', input),
   getCache: () => ipcRenderer.invoke('cache:get'),
   clearCache: () => ipcRenderer.invoke('cache:clear'),
   exportCsv: (rows) => ipcRenderer.invoke('export:csv', rows),

@@ -28,6 +28,9 @@ const el = {
   menubar: $('#menubar'),
   menuPopup: $('#menu-popup'),
   aboutOverlay: $('#about-overlay'),
+  qcOverlay: $('#qc-overlay'),
+  qcInput: $('#qc-input'),
+  qcResult: $('#qc-result'),
 };
 
 let interfaces = [];
@@ -195,6 +198,12 @@ function wireEvents() {
   wireMenus();
   $('#about-ok').addEventListener('click', hideAbout);
   $('#about-close').addEventListener('click', hideAbout);
+  $('#qc-run').addEventListener('click', runQuickCheck);
+  $('#qc-ok').addEventListener('click', hideQuickCheck);
+  $('#qc-close').addEventListener('click', hideQuickCheck);
+  el.qcInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') runQuickCheck();
+  });
   // External links must open in the default browser, not navigate the app window.
   $('#about-github').addEventListener('click', (e) => {
     e.preventDefault();
@@ -214,6 +223,8 @@ const MENUS = {
   scan: [
     { label: 'Start', action: () => !scanning && startScan(), enabled: () => !scanning },
     { label: 'Stop', action: () => scanning && cancelScan(), enabled: () => scanning },
+    { sep: true },
+    { label: 'Quick check…', action: showQuickCheck },
   ],
   help: [{ label: 'About myNetwork…', action: showAbout }],
 };
@@ -263,6 +274,73 @@ function closeMenu() {
 
 function showAbout() { el.aboutOverlay.classList.remove('hidden'); }
 function hideAbout() { el.aboutOverlay.classList.add('hidden'); }
+
+// ---- Quick check (issue #6) -------------------------------------------------
+function showQuickCheck() {
+  el.qcOverlay.classList.remove('hidden');
+  el.qcInput.focus();
+  el.qcInput.select();
+}
+function hideQuickCheck() { el.qcOverlay.classList.add('hidden'); }
+
+async function runQuickCheck() {
+  const v = el.qcInput.value.trim();
+  if (!v) return;
+  el.qcResult.innerHTML = '<span class="qc-pending">Checking…</span>';
+  let res;
+  try {
+    res = await window.api.quickCheck(v);
+  } catch {
+    res = { ok: false, error: 'Check failed' };
+  }
+  el.qcResult.innerHTML = renderQuickCheck(res);
+}
+
+function qcLine(key, valueHtml) {
+  return `<div class="qc-line"><span class="qc-key">${key}</span><span>${valueHtml}</span></div>`;
+}
+
+function renderQuickCheck(res) {
+  if (!res || res.ok === false) return `<div class="qc-verdict bad">${esc((res && res.error) || 'Check failed')}</div>`;
+
+  if (!res.resolved) {
+    return (
+      qcLine('Host', `<span class="qc-mono">${esc(res.host)}</span>`) +
+      `<div class="qc-verdict bad">Did not resolve${res.resolveError ? ` (${esc(res.resolveError)})` : ''} — check the name or your DNS.</div>`
+    );
+  }
+
+  let out = qcLine('DNS', `<span class="qc-mono">${esc(res.host)}</span> → <span class="qc-mono">${esc(res.ip)}</span>`);
+  out += qcLine('ICMP', res.alive
+    ? `reachable${res.rtt != null ? ` <span class="qc-mono">(${res.rtt} ms)</span>` : ''}`
+    : 'no ping reply (may still serve — many hosts drop ICMP)');
+
+  const label = { open: 'open', refused: 'refused', filtered: 'filtered', error: 'error' };
+  for (const t of res.tcp || []) {
+    out += qcLine(`TCP ${t.port}${t.service ? ` (${esc(t.service)})` : ''}`,
+      `<span class="qc-st ${t.state}">${label[t.state] || t.state}</span>` +
+      (t.banner ? ` <span class="qc-mono">${esc(t.banner)}</span>` : ''));
+  }
+
+  // Plain-language verdict from the strongest TCP signal.
+  const states = (res.tcp || []).map((t) => t.state);
+  let cls = 'bad', msg;
+  if (states.includes('open')) {
+    cls = 'good';
+    msg = 'Reachable — a service answered, so the host is up and the port is open.';
+  } else if (states.includes('refused')) {
+    cls = 'warn';
+    msg = 'Host is up, but the port is closed (connection refused) — nothing is listening there.';
+  } else if (states.includes('filtered')) {
+    msg = res.alive
+      ? 'Host pings, but the port did not respond — likely firewalled/filtered.'
+      : 'No ping and no TCP response — host is down or fully filtered for you.';
+  } else {
+    msg = 'Could not complete the TCP check.';
+  }
+  out += `<div class="qc-verdict ${cls}">${msg}</div>`;
+  return out;
+}
 
 // ---- Mode explanation (status bar) ------------------------------------------
 function updateModeInfo() {

@@ -343,11 +343,19 @@ async function resolveHostname(ip) {
   );
 }
 
+// Forward-resolve a hostname to an IPv4 address (for the quick-check feature).
+// Throws (with an error code like ENOTFOUND) if it can't be resolved.
+async function lookupHost(host) {
+  const { address } = await dns.lookup(host, { family: 4 });
+  return address;
+}
+
 module.exports = {
   ping,
   pingAlive,
   readArpTable,
   resolveHostname,
+  lookupHost,
   reverseDns,
   mdnsReverse,
   netbiosName,

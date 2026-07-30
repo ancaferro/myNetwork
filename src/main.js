@@ -2,7 +2,7 @@
 const { app, BrowserWindow, ipcMain, dialog, Notification, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { Scan } = require('./scanner');
+const { Scan, quickCheck } = require('./scanner');
 const { detectInterfaces } = require('./scanner/net-utils');
 const { defaultRoute, pingAlive } = require('./scanner/discovery');
 const { probePort, serviceName, DEFAULT_PORTS } = require('./scanner/ports');
@@ -151,6 +151,14 @@ ipcMain.handle('scan:start', (event, opts) => {
   // backstop so any unexpected throw still reaches the UI instead of vanishing.
   scan.start().catch((e) => send('scan:error', (e && e.message) || String(e)));
   return { ok: true };
+});
+
+ipcMain.handle('quick:check', async (event, input) => {
+  try {
+    return { ok: true, ...(await quickCheck(input)) };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
 });
 
 ipcMain.handle('scan:cancel', () => {

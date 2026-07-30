@@ -149,6 +149,27 @@
     </div>
   </div>
 
+  <!-- ===== Quick check dialog ===== -->
+  <div class="xp-modal-overlay hidden" id="qc-overlay">
+    <div class="xp-dialog qc-dialog">
+      <div class="xp-titlebar sm">
+        <div class="xp-title"><span>Quick check</span></div>
+        <div class="xp-caption-btns"><button class="capbtn close" id="qc-close"></button></div>
+      </div>
+      <div class="xp-dialog-body qc-body">
+        <p class="dim">Is a host up, or am I firewalled? Enter a host, <code>host:port</code>, or IP.</p>
+        <div class="qc-row">
+          <input id="qc-input" type="text" spellcheck="false" placeholder="github.com  ·  github.com:443  ·  10.0.0.1" />
+          <button class="xp-btn default" id="qc-run">Check</button>
+        </div>
+        <div id="qc-result" class="qc-result"></div>
+      </div>
+      <div class="xp-dialog-foot">
+        <button class="xp-btn" id="qc-ok">Close</button>
+      </div>
+    </div>
+  </div>
+
   <script src="renderer.js"></script>
 </body>
 </html>

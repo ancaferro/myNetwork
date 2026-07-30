@@ -9,6 +9,7 @@ const {
   UDP_PORTS,
   serviceName,
   probePort,
+  tcpConnectStatus,
   probeUdp,
   allTcpPorts,
 } = require('../src/scanner/ports');
@@ -78,6 +79,29 @@ test('probePort captures a banner when the server speaks first', async () => {
   } finally {
     server.close();
   }
+});
+
+test('tcpConnectStatus: open on a listening port', async () => {
+  const server = net.createServer(() => {});
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const { port } = server.address();
+  try {
+    const res = await tcpConnectStatus('127.0.0.1', port, 1500);
+    assert.equal(res.state, 'open');
+    assert.equal(res.port, port);
+  } finally {
+    server.close();
+  }
+});
+
+test('tcpConnectStatus: refused on a closed port (host up, nothing listening)', async () => {
+  const server = net.createServer();
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const { port } = server.address();
+  await new Promise((r) => server.close(r));
+
+  const res = await tcpConnectStatus('127.0.0.1', port, 1500);
+  assert.equal(res.state, 'refused');
 });
 
 test('probeUdp reports open when the service replies', async () => {

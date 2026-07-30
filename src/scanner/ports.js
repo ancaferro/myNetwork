@@ -137,6 +137,43 @@ function probePort(ip, port, timeout = 700) {
   });
 }
 
+// Like probePort, but reports *why* a port isn't open — the distinction the
+// quick-check needs: 'open' | 'refused' (host up, port closed) | 'filtered'
+// (no response, likely a firewall) | 'error' (other socket error).
+function tcpConnectStatus(ip, port, timeout = 2000) {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    let settled = false;
+    let connected = false;
+    let banner = '';
+
+    const done = (state) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolve({ port, state, banner: banner.trim() || null });
+    };
+
+    socket.setTimeout(timeout);
+    socket.once('connect', () => {
+      connected = true;
+      socket.setTimeout(300); // brief grace for a banner
+    });
+    socket.once('data', (buf) => {
+      banner = buf.toString('latin1').split('\n')[0].slice(0, 80);
+      done('open');
+    });
+    // Timed out with no handshake => filtered; after connect => open.
+    socket.once('timeout', () => done(connected ? 'open' : 'filtered'));
+    // ECONNREFUSED == host reachable, port closed. Other errors => error.
+    socket.once('error', (err) =>
+      done(connected ? 'open' : err && err.code === 'ECONNREFUSED' ? 'refused' : 'error')
+    );
+    socket.once('close', () => done(connected ? 'open' : 'filtered'));
+    socket.connect(port, ip);
+  });
+}
+
 // UDP probe: connect (so ICMP port-unreachable surfaces as ECONNREFUSED),
 // send a service payload, and classify by the reply.
 //   reply           -> open
@@ -184,6 +221,7 @@ module.exports = {
   UDP_PORTS,
   serviceName,
   probePort,
+  tcpConnectStatus,
   probeUdp,
   allTcpPorts,
 };
