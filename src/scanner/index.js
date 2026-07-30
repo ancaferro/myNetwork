@@ -40,6 +40,38 @@ async function pool(items, concurrency, worker, onTick) {
   });
 }
 
+// Resolve any hostname specs in a comma-separated target to IPs, so the target
+// field accepts "google.com" or "nas.local, 10.0.0.0/24". IP/CIDR/range specs
+// (digits, dots, slashes, hyphens — no letters) pass through untouched; anything
+// with a letter is treated as a hostname and forward-resolved to a single host.
+// Returns { target, label } where label keeps the friendly "host (ip)" form.
+async function resolveTargets(target) {
+  const specs = String(target || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (!specs.length) throw new Error('Empty target');
+
+  const parts = [];
+  const labels = [];
+  for (const spec of specs) {
+    if (/[a-z]/i.test(spec)) {
+      let ip;
+      try {
+        ip = await lookupHost(spec);
+      } catch {
+        throw new Error(`Could not resolve ${spec}`);
+      }
+      parts.push(ip); // a bare IP is parsed as a single host (/32)
+      labels.push(`${spec} (${ip})`);
+    } else {
+      parts.push(spec);
+      labels.push(spec);
+    }
+  }
+  return { target: parts.join(', '), label: labels.join(', ') };
+}
+
 // Layered scan. Emits: 'phase', 'progress' {overall,label}, 'host', 'error', 'done'.
 class Scan extends EventEmitter {
   constructor(opts = {}) {
@@ -69,13 +101,19 @@ class Scan extends EventEmitter {
       portConcurrency = 200,
     } = this.opts;
 
-    let expanded;
+    let resolved;
     try {
-      expanded = expandTargets(target);
+      resolved = await resolveTargets(target); // hostnames -> IPs
     } catch (e) {
       return this.emit('error', e.message);
     }
-    const cidrLabel = expanded.label;
+    let expanded;
+    try {
+      expanded = expandTargets(resolved.target);
+    } catch (e) {
+      return this.emit('error', e.message);
+    }
+    const cidrLabel = resolved.label; // keeps "google.com (142.250.1.2)" for the UI
 
     const cTcp = customTcp && customTcp.length ? customTcp : null;
     const cUdp = customUdp && customUdp.length ? customUdp : null;
@@ -138,6 +176,11 @@ class Scan extends EventEmitter {
       (d) => progress(base + W.discover * (d / ips.length), `ICMP discovery — ${d}/${ips.length} (${live.size} up)`)
     );
     if (this.cancelled) return this.emit('done', { cancelled: true });
+
+    // A single explicitly-targeted host (a bare IP or a resolved domain) is
+    // always probed, even if it ignores ICMP — internet hosts like google.com
+    // routinely drop ping. Ranges keep the liveness gate for performance.
+    if (ips.length === 1 && !live.has(ips[0])) live.set(ips[0], { rtt: null });
 
     const arp2 = await readArpTable().catch(() => new Map());
     // Order by full 32-bit value so multi-subnet scans (e.g. "10.0.0.0/24,
@@ -325,4 +368,4 @@ async function quickCheck(input, opts = {}) {
   return { input: raw, host, port, resolved: true, ip, alive: ping.alive, rtt: ping.rtt, tcp };
 }
 
-module.exports = { Scan, quickCheck };
+module.exports = { Scan, quickCheck, resolveTargets };
