@@ -148,6 +148,21 @@ input#search { flex: 1; }
 .xp-btn.scanning { color: #7a0000; }
 .xp-btn.active { background: linear-gradient(to bottom, #d7ecd9, #b6dcbb 46%, #a3d0aa 54%, #cbe7cf); border-color: #3f8f4a; color: #14521d; font-weight: bold; }
 
+/* ===== Quick check ===== */
+#quickInput { flex: 1; min-width: 160px; }
+#quickResult { flex: 1; min-width: 0; }
+.quick-result { font-size: 11px; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; }
+.quick-result .qc-part { white-space: nowrap; }
+.quick-result .qc-open { color: #1a6b32; font-weight: bold; }
+.quick-result .qc-closed { color: #7a0000; }
+.quick-result .qc-filtered { color: #7a5b00; }
+.quick-result .qc-error { color: #7a0000; font-style: italic; }
+/* The plain-language answer to "is it down, or am I firewalled?" */
+.quick-result .qc-verdict { padding: 1px 7px; border: 1px solid; border-radius: 3px; }
+.quick-result .qc-verdict.good { color: #14521d; background: #eafaef; border-color: #96cfa6; }
+.quick-result .qc-verdict.warn { color: #7a5b00; background: #fff8dd; border-color: #e0cf8a; }
+.quick-result .qc-verdict.bad { color: #7a0000; background: #fdecea; border-color: #e0a79a; }
+
 /* ===== Filter bar ===== */
 .xp-filterbar {
   flex-shrink: 0; display: flex; align-items: center; gap: 6px;
@@ -298,23 +313,3 @@ tr.sel .port { background: #fff; }
 .ext-link:hover { text-decoration: underline; }
 .xp-dialog-foot { display: flex; justify-content: flex-end; padding: 0 16px 14px; gap: 6px; }
 
-/* ===== Quick check dialog ===== */
-.qc-dialog { width: 420px; }
-.qc-body { display: block; padding: 14px 16px 6px; }
-.qc-body code { font-family: 'Consolas', 'DejaVu Sans Mono', monospace; background: #f1efe2; padding: 0 3px; border: 1px solid #d7d3c3; border-radius: 2px; }
-.qc-row { display: flex; gap: 6px; margin: 8px 0; }
-.qc-row input { flex: 1; font-family: 'Consolas', 'DejaVu Sans Mono', monospace; }
-.qc-row #qc-run { min-width: 64px; }
-.qc-result { min-height: 20px; font-size: 11px; }
-.qc-result .qc-pending { color: #5a5a4d; }
-.qc-result .qc-line { display: flex; align-items: baseline; gap: 6px; padding: 2px 0; }
-.qc-result .qc-key { color: #16407a; min-width: 96px; }
-.qc-result .qc-mono { font-family: 'Consolas', 'DejaVu Sans Mono', monospace; }
-.qc-result .qc-verdict { margin-top: 6px; padding: 5px 8px; border: 1px solid; border-radius: 3px; }
-.qc-result .qc-verdict.good { color: #14521d; background: #eafaef; border-color: #96cfa6; }
-.qc-result .qc-verdict.warn { color: #7a5b00; background: #fff8dd; border-color: #e0cf8a; }
-.qc-result .qc-verdict.bad { color: #7a0000; background: #fdecea; border-color: #e0a79a; }
-.qc-st { font-family: 'Consolas', 'DejaVu Sans Mono', monospace; padding: 0 5px; border-radius: 2px; border: 1px solid; }
-.qc-st.open { color: #1a6b32; background: #eafaef; border-color: #96cfa6; }
-.qc-st.refused { color: #7a5b00; background: #fff8dd; border-color: #e0cf8a; }
-.qc-st.filtered, .qc-st.error { color: #7a0000; background: #fdecea; border-color: #e0a79a; }

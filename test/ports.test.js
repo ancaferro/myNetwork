@@ -9,7 +9,7 @@ const {
   UDP_PORTS,
   serviceName,
   probePort,
-  tcpConnectStatus,
+  probePortDetailed,
   probeUdp,
   allTcpPorts,
 } = require('../src/scanner/ports');
@@ -81,29 +81,6 @@ test('probePort captures a banner when the server speaks first', async () => {
   }
 });
 
-test('tcpConnectStatus: open on a listening port', async () => {
-  const server = net.createServer(() => {});
-  await new Promise((r) => server.listen(0, '127.0.0.1', r));
-  const { port } = server.address();
-  try {
-    const res = await tcpConnectStatus('127.0.0.1', port, 1500);
-    assert.equal(res.state, 'open');
-    assert.equal(res.port, port);
-  } finally {
-    server.close();
-  }
-});
-
-test('tcpConnectStatus: refused on a closed port (host up, nothing listening)', async () => {
-  const server = net.createServer();
-  await new Promise((r) => server.listen(0, '127.0.0.1', r));
-  const { port } = server.address();
-  await new Promise((r) => server.close(r));
-
-  const res = await tcpConnectStatus('127.0.0.1', port, 1500);
-  assert.equal(res.state, 'refused');
-});
-
 test('probeUdp reports open when the service replies', async () => {
   const server = dgram.createSocket('udp4');
   server.on('message', (msg, rinfo) => server.send(Buffer.from('pong'), rinfo.port, rinfo.address));
@@ -113,6 +90,46 @@ test('probeUdp reports open when the service replies', async () => {
     const res = await probeUdp('127.0.0.1', port, 1000);
     assert.equal(res.state, 'open');
     assert.equal(res.proto, 'udp');
+  } finally {
+    server.close();
+  }
+});
+
+// probePortDetailed's 'filtered' state (silence rather than an active RST)
+// can't be produced deterministically on localhost or in a sandboxed CI
+// network — same reasoning discovery.js's real ICMP/ARP paths are left to
+// manual/integration testing. The two deterministic states are covered here.
+test('probePortDetailed reports "open" for a listening TCP port', async () => {
+  const server = net.createServer((sock) => sock.end());
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const { port } = server.address();
+  try {
+    const res = await probePortDetailed('127.0.0.1', port, 1000);
+    assert.equal(res.state, 'open');
+    assert.equal(res.port, port);
+  } finally {
+    server.close();
+  }
+});
+
+test('probePortDetailed reports "closed" when the OS actively refuses', async () => {
+  const server = net.createServer();
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const { port } = server.address();
+  await new Promise((r) => server.close(r));
+
+  const res = await probePortDetailed('127.0.0.1', port, 1000);
+  assert.equal(res.state, 'closed');
+});
+
+test('probePortDetailed captures a banner when the server speaks first', async () => {
+  const server = net.createServer((sock) => sock.write('SSH-2.0-Test\r\n'));
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const { port } = server.address();
+  try {
+    const res = await probePortDetailed('127.0.0.1', port, 1000);
+    assert.equal(res.state, 'open');
+    assert.equal(res.banner, 'SSH-2.0-Test');
   } finally {
     server.close();
   }

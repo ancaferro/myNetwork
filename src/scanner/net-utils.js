@@ -86,6 +86,45 @@ function expandTargets(input) {
   return { label: specs.join(', '), ips };
 }
 
+// ---- host[:port] parsing (quick check) --------------------------------------
+// Accepts a bare hostname/IP ("github.com", "10.0.0.1"), "host:port"
+// ("github.com:443"), or a bracketed IPv6 literal ("[::1]" / "[::1]:443").
+// Unlike parseTargets(), the host half is NOT validated as an IPv4 address
+// here — it may be a hostname, which DNS resolution (not this function) is
+// responsible for accepting or rejecting.
+function parseHostPort(input) {
+  const raw = String(input || '').trim();
+  if (!raw) throw new Error('Empty target');
+
+  // Shared by both branches so a bracketed literal can't smuggle through an
+  // out-of-range port that only blows up later inside socket.connect().
+  const toPort = (portStr) => {
+    const port = Number(portStr);
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      throw new Error(`Invalid host:port "${raw}"`);
+    }
+    return port;
+  };
+
+  const bracketed = /^\[([^\]]+)\](?::(\d+))?$/.exec(raw);
+  if (bracketed) {
+    const [, host, portStr] = bracketed;
+    return { host, port: portStr ? toPort(portStr) : null };
+  }
+
+  const colonCount = (raw.match(/:/g) || []).length;
+  // A bare (unbracketed) IPv6 address has 2+ colons — treat the whole string
+  // as the host rather than misreading its last colon as a port separator.
+  if (colonCount > 1) return { host: raw, port: null };
+
+  const lastColon = raw.lastIndexOf(':');
+  if (lastColon === -1) return { host: raw, port: null };
+
+  const host = raw.slice(0, lastColon);
+  if (!host) throw new Error(`Invalid host:port "${raw}"`);
+  return { host, port: toPort(raw.slice(lastColon + 1)) };
+}
+
 // ---- Local interface detection ---------------------------------------------
 // Grouped by interface name — an interface may carry several IPv4 addresses.
 function detectInterfaces() {
@@ -141,4 +180,5 @@ module.exports = {
   iterateHosts,
   expandTargets,
   detectInterfaces,
+  parseHostPort,
 };

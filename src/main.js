@@ -2,10 +2,11 @@
 const { app, BrowserWindow, ipcMain, dialog, Notification, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { Scan, quickCheck } = require('./scanner');
+const { Scan } = require('./scanner');
 const { detectInterfaces } = require('./scanner/net-utils');
 const { defaultRoute, pingAlive } = require('./scanner/discovery');
 const { probePort, serviceName, DEFAULT_PORTS } = require('./scanner/ports');
+const { quickCheck } = require('./scanner/quickcheck');
 
 const ICON_PATH = path.join(__dirname, '..', 'build', 'icon.png');
 
@@ -112,6 +113,16 @@ ipcMain.handle('cache:clear', () => {
   return { ok: true };
 });
 
+// One-shot "is this host:port reachable?" check — a single call/response,
+// unlike the streamed scan:* events below (see quickCheck's own docstring).
+ipcMain.handle('quickcheck:run', async (event, input) => {
+  try {
+    return { ok: true, result: await quickCheck(input) };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});
+
 ipcMain.handle('scan:start', (event, opts) => {
   if (currentScan) currentScan.cancel();
   const scan = new Scan(opts);
@@ -153,14 +164,6 @@ ipcMain.handle('scan:start', (event, opts) => {
   return { ok: true };
 });
 
-ipcMain.handle('quick:check', async (event, input) => {
-  try {
-    return { ok: true, ...(await quickCheck(input)) };
-  } catch (e) {
-    return { ok: false, error: e.message };
-  }
-});
-
 ipcMain.handle('scan:cancel', () => {
   if (currentScan) {
     currentScan.cancel();
@@ -195,6 +198,19 @@ function csvCell(v) {
   // Guard against CSV formula injection, then quote if needed.
   const safe = /^[=+\-@]/.test(s) ? `'${s}` : s;
   return /[",\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+}
+
+// Markdown table cell. Hostnames reach us from mDNS/NetBIOS — i.e. chosen by
+// the scanned host, not by us — so a cell must not be able to break out of its
+// row or smuggle markup into the exported file: newlines would end the row,
+// a bare pipe would open a new column, and most Markdown renderers pass raw
+// HTML straight through.
+function mdCell(v) {
+  return String(v == null ? '' : v)
+    .replace(/[\r\n]+/g, ' ')
+    .replace(/\|/g, '\\|')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 ipcMain.handle('export:csv', async (event, rows) => {
@@ -343,15 +359,10 @@ ipcMain.handle('export:markdown', async (event, rows) => {
 
   const header = '| IP | Hostname | MAC | Vendor | RTT (ms) | Open ports | Ports |\n|---|---|---|---|---|---|---|';
   const lines = [summary + header];
-  
-  function esc(s) {
-    return String(s || '').replace(/\|/g, '\\|');
-  }
-
   for (const r of rows) {
     const ports = (r.ports || []).map((p) => `${p.port}${p.service ? '/' + p.service : ''}`).join('; ');
     lines.push(
-      `| ${esc(r.ip)} | ${esc(r.hostname)} | ${esc(r.mac)} | ${esc(r.vendor)} | ${r.rtt != null ? r.rtt : ''} | ${r.openCount || 0} | ${esc(ports)} |`
+      `| ${mdCell(r.ip)} | ${mdCell(r.hostname)} | ${mdCell(r.mac)} | ${mdCell(r.vendor)} | ${r.rtt != null ? r.rtt : ''} | ${r.openCount || 0} | ${mdCell(ports)} |`
     );
   }
   const md = lines.join('\n') + '\n';

@@ -137,43 +137,6 @@ function probePort(ip, port, timeout = 700) {
   });
 }
 
-// Like probePort, but reports *why* a port isn't open — the distinction the
-// quick-check needs: 'open' | 'refused' (host up, port closed) | 'filtered'
-// (no response, likely a firewall) | 'error' (other socket error).
-function tcpConnectStatus(ip, port, timeout = 2000) {
-  return new Promise((resolve) => {
-    const socket = new net.Socket();
-    let settled = false;
-    let connected = false;
-    let banner = '';
-
-    const done = (state) => {
-      if (settled) return;
-      settled = true;
-      socket.destroy();
-      resolve({ port, state, banner: banner.trim() || null });
-    };
-
-    socket.setTimeout(timeout);
-    socket.once('connect', () => {
-      connected = true;
-      socket.setTimeout(300); // brief grace for a banner
-    });
-    socket.once('data', (buf) => {
-      banner = buf.toString('latin1').split('\n')[0].slice(0, 80);
-      done('open');
-    });
-    // Timed out with no handshake => filtered; after connect => open.
-    socket.once('timeout', () => done(connected ? 'open' : 'filtered'));
-    // ECONNREFUSED == host reachable, port closed. Other errors => error.
-    socket.once('error', (err) =>
-      done(connected ? 'open' : err && err.code === 'ECONNREFUSED' ? 'refused' : 'error')
-    );
-    socket.once('close', () => done(connected ? 'open' : 'filtered'));
-    socket.connect(port, ip);
-  });
-}
-
 // UDP probe: connect (so ICMP port-unreachable surfaces as ECONNREFUSED),
 // send a service payload, and classify by the reply.
 //   reply           -> open
@@ -210,6 +173,56 @@ function probeUdp(ip, port, timeout = 1200) {
   });
 }
 
+// Like probePort(), but for a single-host "is this reachable?" check we also
+// want *why* it's closed:
+//   open     - TCP handshake completed
+//   closed   - OS actively refused (ECONNREFUSED / ECONNRESET) — host is up,
+//              nothing is listening on this port
+//   filtered - nothing came back before the timeout — likely a firewall
+//              dropping the packets rather than the host rejecting them
+// probePort() itself is left untouched: main.js's live monitor and the scan
+// layers already depend on its simpler { open, banner } shape.
+function probePortDetailed(ip, port, timeout = 2000) {
+  return new Promise((resolve) => {
+    const socket = new net.Socket();
+    let settled = false;
+    let connected = false;
+    let banner = '';
+
+    const done = (state) => {
+      if (settled) return;
+      settled = true;
+      socket.destroy();
+      resolve({ port, state, banner: banner.trim() || null });
+    };
+
+    socket.setTimeout(timeout);
+    socket.once('connect', () => {
+      // Handshake done — give the server a brief grace period for a banner,
+      // then report open either way.
+      connected = true;
+      socket.setTimeout(300);
+    });
+    socket.once('data', (buf) => {
+      banner = buf.toString('latin1').split('\n')[0].slice(0, 80);
+      done('open');
+    });
+    socket.once('timeout', () => done(connected ? 'open' : 'filtered'));
+    socket.once('error', (err) => {
+      if (connected) return done('open'); // already handshook — the port is open
+      const refused = err && (err.code === 'ECONNREFUSED' || err.code === 'ECONNRESET');
+      done(refused ? 'closed' : 'filtered');
+    });
+    // Guards the case where the peer accepts then hangs up before the banner
+    // grace elapses (mirrors probePort()'s use of the same event). Reporting
+    // 'open' here is only correct once the handshake completed — a close
+    // without one must never be read as open, since a false "open" is the
+    // worst direction for this tool to be wrong in.
+    socket.once('close', () => done(connected ? 'open' : 'filtered'));
+    socket.connect(port, ip);
+  });
+}
+
 function allTcpPorts() {
   return Array.from({ length: 65535 }, (_, i) => i + 1);
 }
@@ -221,7 +234,7 @@ module.exports = {
   UDP_PORTS,
   serviceName,
   probePort,
-  tcpConnectStatus,
+  probePortDetailed,
   probeUdp,
   allTcpPorts,
 };

@@ -73,6 +73,18 @@
       </div>
     </div>
 
+    <!-- ===== Quick check ===== -->
+    <div class="xp-toolbar">
+      <fieldset class="xp-group grow">
+        <legend>Quick check</legend>
+        <div class="grp-row">
+          <input id="quickInput" type="text" spellcheck="false" placeholder="github.com, github.com:443, or an IP" />
+          <button id="quickBtn" class="xp-btn sm">Check</button>
+          <span id="quickResult" class="quick-result"></span>
+        </div>
+      </fieldset>
+    </div>
+
     <!-- ===== Filter bar ===== -->
     <div class="xp-filterbar">
       <label>Filter:</label>
@@ -145,27 +157,6 @@
       </div>
       <div class="xp-dialog-foot">
         <button class="xp-btn default" id="about-ok">OK</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- ===== Quick check dialog ===== -->
-  <div class="xp-modal-overlay hidden" id="qc-overlay">
-    <div class="xp-dialog qc-dialog">
-      <div class="xp-titlebar sm">
-        <div class="xp-title"><span>Quick check</span></div>
-        <div class="xp-caption-btns"><button class="capbtn close" id="qc-close"></button></div>
-      </div>
-      <div class="xp-dialog-body qc-body">
-        <p class="dim">Is a host up, or am I firewalled? Enter a host, <code>host:port</code>, or IP.</p>
-        <div class="qc-row">
-          <input id="qc-input" type="text" spellcheck="false" placeholder="github.com  ·  github.com:443  ·  10.0.0.1" />
-          <button class="xp-btn default" id="qc-run">Check</button>
-        </div>
-        <div id="qc-result" class="qc-result"></div>
-      </div>
-      <div class="xp-dialog-foot">
-        <button class="xp-btn" id="qc-ok">Close</button>
       </div>
     </div>
   </div>

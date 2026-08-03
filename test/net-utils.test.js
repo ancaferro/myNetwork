@@ -8,6 +8,7 @@ const {
   iterateHosts,
   expandTargets,
   detectInterfaces,
+  parseHostPort,
 } = require('../src/scanner/net-utils');
 
 test('ipToInt / intToIp round-trip', () => {
@@ -108,4 +109,36 @@ test('detectInterfaces returns well-shaped, sorted interface records', () => {
   for (let k = 1; k < ifaces.length; k++) {
     assert.ok(ifaces[k - 1].primary.bits >= ifaces[k].primary.bits);
   }
+});
+
+test('parseHostPort: bare hostname or IP has no port', () => {
+  assert.deepEqual(parseHostPort('github.com'), { host: 'github.com', port: null });
+  assert.deepEqual(parseHostPort('10.0.0.1'), { host: '10.0.0.1', port: null });
+  assert.deepEqual(parseHostPort('  github.com  '), { host: 'github.com', port: null });
+});
+
+test('parseHostPort: host:port splits on the last colon', () => {
+  assert.deepEqual(parseHostPort('github.com:443'), { host: 'github.com', port: 443 });
+  assert.deepEqual(parseHostPort('10.0.0.1:8080'), { host: '10.0.0.1', port: 8080 });
+});
+
+test('parseHostPort: bracketed IPv6, with and without a port', () => {
+  assert.deepEqual(parseHostPort('[::1]'), { host: '::1', port: null });
+  assert.deepEqual(parseHostPort('[::1]:8080'), { host: '::1', port: 8080 });
+  // Regression: the bracketed branch used to skip range validation entirely,
+  // letting an impossible port through to socket.connect().
+  assert.throws(() => parseHostPort('[::1]:99999'), /Invalid host:port/);
+  assert.throws(() => parseHostPort('[::1]:0'), /Invalid host:port/);
+});
+
+test('parseHostPort: bare (unbracketed) IPv6 is treated as host-only', () => {
+  assert.deepEqual(parseHostPort('2001:db8::1'), { host: '2001:db8::1', port: null });
+});
+
+test('parseHostPort rejects an invalid port or empty input', () => {
+  assert.throws(() => parseHostPort('github.com:notaport'), /Invalid host:port/);
+  assert.throws(() => parseHostPort('github.com:99999'), /Invalid host:port/);
+  assert.throws(() => parseHostPort('github.com:0'), /Invalid host:port/);
+  assert.throws(() => parseHostPort(':443'), /Invalid host:port/);
+  assert.throws(() => parseHostPort(''), /Empty target/);
 });

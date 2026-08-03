@@ -8,7 +8,6 @@ const {
   UDP_PORTS,
   serviceName,
   probePort,
-  tcpConnectStatus,
   probeUdp,
   allTcpPorts,
 } = require('./ports');
@@ -317,55 +316,4 @@ class Scan extends EventEmitter {
   }
 }
 
-// One-shot reachability check for a single "host", "host:port" or IP.
-// Resolves DNS (unless given an IP), pings, and TCP-probes the port(s) — the
-// default being 443 + 80 when none is given. Returns a structured result;
-// throws only on empty input. Powers issue #6 (the "is X down / am I firewalled"
-// question) without spinning up a full Scan.
-const IPV4_RE = /^\d{1,3}(?:\.\d{1,3}){3}$/;
-async function quickCheck(input, opts = {}) {
-  const { pingTimeout = 1200, tcpTimeout = 2000 } = opts;
-  const raw = String(input || '').trim();
-  if (!raw) throw new Error('Enter a host, host:port, or IP');
-
-  // Split a trailing ":port" (IPv4-only app, so a lone colon is the port sep).
-  let host = raw;
-  let port = null;
-  const m = /^(.+):(\d{1,5})$/.exec(raw);
-  if (m && Number(m[2]) >= 1 && Number(m[2]) <= 65535) {
-    host = m[1];
-    port = Number(m[2]);
-  }
-
-  // Resolve (skip for a literal IP).
-  let ip = null;
-  let resolveError = null;
-  if (IPV4_RE.test(host)) {
-    ip = host;
-  } else {
-    try {
-      ip = await lookupHost(host);
-    } catch (e) {
-      resolveError = (e && e.code) || 'resolution failed';
-    }
-  }
-  if (!ip) return { input: raw, host, port, resolved: false, resolveError };
-
-  // Ping and TCP-probe concurrently to stay within a couple of seconds.
-  const portsToCheck = port != null ? [port] : [443, 80];
-  const [ping, ...tcp] = await Promise.all([
-    pingAlive(ip, pingTimeout, 2),
-    ...portsToCheck.map((p) =>
-      tcpConnectStatus(ip, p, tcpTimeout).then((r) => ({
-        port: p,
-        state: r.state,
-        service: serviceName(p, 'tcp'),
-        banner: r.banner,
-      }))
-    ),
-  ]);
-
-  return { input: raw, host, port, resolved: true, ip, alive: ping.alive, rtt: ping.rtt, tcp };
-}
-
-module.exports = { Scan, quickCheck, resolveTargets };
+module.exports = { Scan, resolveTargets };
