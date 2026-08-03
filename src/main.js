@@ -333,3 +333,40 @@ ipcMain.handle('export:json', async (event, rows) => {
     return { ok: false, error: e.message };
   }
 });
+
+ipcMain.handle('export:markdown', async (event, rows) => {
+  if (!Array.isArray(rows) || rows.length === 0) return { ok: false, error: 'No results to export' };
+
+  let openPortsCount = 0;
+  for (const r of rows) openPortsCount += r.openCount || 0;
+  const summary = `**Scan Summary**\n- Scanned at: ${new Date().toISOString()}\n- Hosts up: ${rows.length}\n- Open ports: ${openPortsCount}\n\n`;
+
+  const header = '| IP | Hostname | MAC | Vendor | RTT (ms) | Open ports | Ports |\n|---|---|---|---|---|---|---|';
+  const lines = [summary + header];
+  
+  function esc(s) {
+    return String(s || '').replace(/\|/g, '\\|');
+  }
+
+  for (const r of rows) {
+    const ports = (r.ports || []).map((p) => `${p.port}${p.service ? '/' + p.service : ''}`).join('; ');
+    lines.push(
+      `| ${esc(r.ip)} | ${esc(r.hostname)} | ${esc(r.mac)} | ${esc(r.vendor)} | ${r.rtt != null ? r.rtt : ''} | ${r.openCount || 0} | ${esc(ports)} |`
+    );
+  }
+  const md = lines.join('\n') + '\n';
+
+  const { canceled, filePath } = await dialog.showSaveDialog(win, {
+    title: 'Export scan results',
+    defaultPath: 'mynetwork-scan.md',
+    filters: [{ name: 'Markdown', extensions: ['md'] }],
+  });
+  if (canceled || !filePath) return { ok: false, cancelled: true };
+
+  try {
+    fs.writeFileSync(filePath, md, 'utf8');
+    return { ok: true, filePath };
+  } catch (e) {
+    return { ok: false, error: e.message };
+  }
+});

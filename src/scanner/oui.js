@@ -111,7 +111,9 @@ function loadFullDb() {
       if (nl === -1) nl = raw.length;
       const tab = raw.indexOf('\t', i);
       if (tab !== -1 && tab < nl) {
-        fullDb.set(raw.slice(i, tab), raw.slice(tab + 1, nl));
+        let end = nl;
+        if (raw[end - 1] === '\r') end--;
+        fullDb.set(raw.slice(i, tab), raw.slice(tab + 1, end));
       }
       i = nl + 1;
     }
