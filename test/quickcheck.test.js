@@ -1,9 +1,9 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const net = require('net');
 const { quickCheck, resolveHost } = require('../src/scanner/quickcheck');
 const { resolveTargets } = require('../src/scanner');
+const { withOpenServer } = require('./test-utils');
 
 // ---- quickCheck (issue #6) --------------------------------------------------
 test('resolveHost resolves an IP literal without a network round-trip', async () => {
@@ -13,19 +13,17 @@ test('resolveHost resolves an IP literal without a network round-trip', async ()
 });
 
 test('quickCheck against an explicit port checks only that port', async () => {
-  const server = net.createServer((sock) => sock.end());
-  await new Promise((r) => server.listen(0, '127.0.0.1', r));
-  const { port } = server.address();
-  try {
-    const res = await quickCheck(`127.0.0.1:${port}`, { pingTimeout: 500, portTimeout: 800 });
-    assert.equal(res.resolved, true);
-    assert.equal(res.ip, '127.0.0.1');
-    assert.equal(res.ports.length, 1);
-    assert.equal(res.ports[0].port, port);
-    assert.equal(res.ports[0].state, 'open');
-  } finally {
-    server.close();
-  }
+  await withOpenServer(
+    (sock) => sock.end(),
+    async (port) => {
+      const res = await quickCheck(`127.0.0.1:${port}`, { pingTimeout: 500, portTimeout: 800 });
+      assert.equal(res.resolved, true);
+      assert.equal(res.ip, '127.0.0.1');
+      assert.equal(res.ports.length, 1);
+      assert.equal(res.ports[0].port, port);
+      assert.equal(res.ports[0].state, 'open');
+    }
+  );
 });
 
 test('quickCheck with no port checks both 80 and 443', async () => {
