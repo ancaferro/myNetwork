@@ -102,4 +102,4 @@ authorised to.
 
 ## License
 
-MIT
+[MIT](LICENSE)
