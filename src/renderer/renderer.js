@@ -18,6 +18,7 @@ const el = {
   clearBtn: $('#clearBtn'),
   search: $('#search'),
   preserve: $('#preserve'),
+  trayMode: $('#trayMode'),
   sbStatus: $('#sb-status'),
   sbMode: $('#sb-mode'),
   sbCount: $('#sb-count'),
@@ -66,7 +67,42 @@ async function init() {
   } catch {
     el.sbStatus.textContent = 'Could not read network interfaces';
   }
+  // Restore the tray preference (silently — no status noise on startup).
+  try {
+    if (localStorage.getItem(TRAY_KEY) === '1') applyTrayMode(true, false);
+  } catch {
+    /* storage unavailable — stay off */
+  }
   restoreCache();
+}
+
+// ---- Close to tray (issue #10) ----------------------------------------------
+// Off by default. The main process is the source of truth: if this desktop
+// gives us no tray icon, it says so and the box goes back to unchecked rather
+// than leaving the user able to hide a window they can't get back.
+const TRAY_KEY = 'mynetwork.tray';
+
+async function applyTrayMode(enabled, fromUser) {
+  let res = null;
+  try {
+    res = await window.api.setTrayEnabled(enabled);
+  } catch {
+    /* treated as unavailable below */
+  }
+  const on = !!(res && res.ok && res.enabled);
+  el.trayMode.checked = on;
+  try {
+    localStorage.setItem(TRAY_KEY, on ? '1' : '0');
+  } catch {
+    /* storage unavailable — non-fatal */
+  }
+  if (enabled && !on) {
+    el.sbStatus.textContent = (res && res.error) || 'Tray is unavailable on this desktop';
+  } else if (fromUser) {
+    el.sbStatus.textContent = on
+      ? 'Closing the window now keeps monitoring in the tray'
+      : 'Closing the window quits';
+  }
 }
 
 // ---- Persisted interface / Range -------------------------------------------
@@ -147,6 +183,7 @@ function wireEvents() {
   el.scanBtn.addEventListener('click', () => (scanning ? cancelScan() : startScan()));
   el.monitorBtn.addEventListener('click', () => (monitoring ? stopMonitoring() : startMonitoring()));
   el.clearBtn.addEventListener('click', clearResults);
+  el.trayMode.addEventListener('change', () => applyTrayMode(el.trayMode.checked, true));
   el.target.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && !scanning) startScan();
   });

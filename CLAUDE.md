@@ -62,6 +62,8 @@ Concurrency is bounded by the local `pool(items, concurrency, worker, onTick)` h
 
 Started via `monitor:start` in `main.js`, independent of `Scan`: pings known hosts every 60 s (online/offline OS notifications) and re-probes their TCP ports every 5 min, pushing `monitor:host` updates to the renderer.
 
+**Close to tray** (`tray:set-enabled`) is opt-in and off by default, so closing the window quits as it always did. When on, `win.on('close')` hides the window instead, keeping the monitor timers alive, and the tray menu shows live up/total counts with Quit as the only way out. `createTray()` returns false if the platform gave us no icon and the handler then refuses to enable the mode — hiding a window with no tray icon would strand the user, which is a real risk on GNOME without an AppIndicator extension.
+
 ## Conventions
 
 - All source files start with `'use strict';`.

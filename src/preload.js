@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('api', {
   exportCsv: (rows) => ipcRenderer.invoke('export:csv', rows),
   exportJson: (rows) => ipcRenderer.invoke('export:json', rows),
   exportMarkdown: (rows) => ipcRenderer.invoke('export:markdown', rows),
+  setTrayEnabled: (enabled) => ipcRenderer.invoke('tray:set-enabled', enabled),
   startMonitor: (hosts) => ipcRenderer.invoke('monitor:start', hosts),
   stopMonitor: () => ipcRenderer.invoke('monitor:stop'),
   onMonitorHost: (cb) => ipcRenderer.on('monitor:host', (_e, u) => cb(u)),

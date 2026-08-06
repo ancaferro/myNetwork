@@ -1,5 +1,5 @@
 'use strict';
-const { app, BrowserWindow, ipcMain, dialog, Notification, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Notification, shell, Tray, Menu, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { Scan } = require('./scanner');
@@ -12,6 +12,15 @@ const ICON_PATH = path.join(__dirname, '..', 'build', 'icon.png');
 
 let win = null;
 let currentScan = null;
+
+// ---- Tray (issue #10) -------------------------------------------------------
+// Opt-in and off by default: with it off, closing the window quits as before.
+// With it on, closing hides to the tray so monitoring keeps running, and Quit
+// in the tray menu is the only way out.
+let tray = null;
+let trayEnabled = false;
+let quitting = false;
+let toldUserAboutTray = false;
 
 // ---- Last-scan cache --------------------------------------------------------
 function cacheFile() {
@@ -60,7 +69,85 @@ function createWindow() {
   win.on('maximize', () => win.webContents.send('win:state', { maximized: true }));
   win.on('unmaximize', () => win.webContents.send('win:state', { maximized: false }));
 
+  // Close-to-tray: hide instead of destroying, so the monitor timers survive.
+  win.on('close', (e) => {
+    if (!trayEnabled || quitting || !tray) return; // normal close -> quit as before
+    e.preventDefault();
+    win.hide();
+    if (!toldUserAboutTray) {
+      toldUserAboutTray = true;
+      notify('myNetwork is still running', 'Monitoring continues in the tray. Use Quit there to exit.');
+    }
+  });
+
   if (process.argv.includes('--dev')) win.webContents.openDevTools({ mode: 'detach' });
+}
+
+function showWindow() {
+  if (win && !win.isDestroyed()) {
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.focus();
+  } else {
+    createWindow();
+  }
+}
+
+// Live host counts for the tray menu; null when nothing is being monitored.
+function monitorStats() {
+  if (!monitor || !monitor.state) return null;
+  let up = 0;
+  for (const st of monitor.state.values()) if (st.online) up++;
+  return { total: monitor.state.size, up };
+}
+
+function updateTrayMenu() {
+  if (!tray) return;
+  const s = monitorStats();
+  const status = s ? `Monitoring ${s.total} host${s.total === 1 ? '' : 's'} — ${s.up} up` : 'Not monitoring';
+  tray.setToolTip(`myNetwork — ${status}`);
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: status, enabled: false },
+      { type: 'separator' },
+      { label: 'Show window', click: showWindow },
+      {
+        label: 'Quit',
+        click: () => {
+          quitting = true;
+          app.quit();
+        },
+      },
+    ])
+  );
+}
+
+// Returns true only if the icon was actually created. Tray support is uneven on
+// Linux (GNOME needs an AppIndicator extension), and hiding the window with no
+// tray icon would strand the user with no way back — so the caller must not
+// enable close-to-tray unless this succeeded.
+function createTray() {
+  if (tray) return true;
+  try {
+    const img = nativeImage.createFromPath(ICON_PATH).resize({ width: 16, height: 16 });
+    tray = new Tray(img);
+    tray.on('click', showWindow); // Windows/Linux; macOS opens the menu instead
+    updateTrayMenu();
+    return true;
+  } catch {
+    tray = null;
+    return false;
+  }
+}
+
+function destroyTray() {
+  if (!tray) return;
+  try {
+    tray.destroy();
+  } catch {
+    /* already gone */
+  }
+  tray = null;
 }
 
 app.whenReady().then(() => {
@@ -70,9 +157,23 @@ app.whenReady().then(() => {
   });
 });
 
+// Any quit path (tray menu, Cmd+Q, signal) must be allowed through win.on('close').
+app.on('before-quit', () => {
+  quitting = true;
+});
+
 app.on('window-all-closed', () => {
+  // With close-to-tray on, the window is hidden rather than destroyed, so this
+  // normally won't fire; if it does (window destroyed some other way), keep the
+  // process and the monitor alive for the tray.
+  if (trayEnabled && tray) return;
   stopMonitor();
   if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('will-quit', () => {
+  stopMonitor();
+  destroyTray();
 });
 
 // ---- IPC --------------------------------------------------------------------
@@ -259,6 +360,7 @@ function stopMonitor() {
     clearInterval(monitor.t1);
     clearInterval(monitor.t2);
     monitor = null;
+    updateTrayMenu();
   }
 }
 
@@ -292,6 +394,7 @@ function startMonitor(hosts) {
         monitorSend('monitor:host', { ip, online: st.online, rtt: r.rtt });
       })
     );
+    updateTrayMenu(); // keep the tray's up/total count current
   };
 
   const portRound = async () => {
@@ -316,9 +419,27 @@ function startMonitor(hosts) {
   monitor = {
     t1: setInterval(pingRound, 60 * 1000),
     t2: setInterval(portRound, 5 * 60 * 1000),
+    state, // exposed so the tray menu can show live up/total counts
   };
+  updateTrayMenu();
   return { ok: true, count: state.size };
 }
+
+// Turn close-to-tray on/off. Reports back what actually happened, so the
+// renderer can un-tick the box if the platform gave us no tray icon.
+ipcMain.handle('tray:set-enabled', (event, enabled) => {
+  if (enabled) {
+    if (!createTray()) {
+      trayEnabled = false;
+      return { ok: false, enabled: false, error: 'This desktop did not provide a tray icon' };
+    }
+    trayEnabled = true;
+  } else {
+    trayEnabled = false;
+    destroyTray();
+  }
+  return { ok: true, enabled: trayEnabled };
+});
 
 ipcMain.handle('monitor:start', (e, hosts) => startMonitor(Array.isArray(hosts) ? hosts : []));
 ipcMain.handle('monitor:stop', () => {
